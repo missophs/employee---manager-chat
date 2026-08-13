@@ -1,6 +1,6 @@
 # The cloud version of the app manifest.
 # Paste into api.slack.com/apps → your app → App Manifest AFTER the Vercel
-# deploy, replacing YOUR-PROJECT.vercel.app with the real address Vercel gives.
+# deploy, replacing performance-pulse-lyart.vercel.app with the real address Vercel gives.
 # Differences from the laptop version: Socket Mode off, real request URLs,
 # and a redirect URL so "Add to Slack" installs work.
 
@@ -21,10 +21,10 @@ features:
       description: Send yourself a test ping
       usage_hint: topic, upcoming, feedback, request, development, action, wrap
       should_escape: false
-      url: https://YOUR-PROJECT.vercel.app/slack/events
+      url: https://performance-pulse-lyart.vercel.app/slack/events
 oauth_config:
   redirect_urls:
-    - https://YOUR-PROJECT.vercel.app/slack/oauth_redirect
+    - https://performance-pulse-lyart.vercel.app/slack/oauth_redirect
   scopes:
     bot:
       - chat:write
@@ -33,12 +33,12 @@ oauth_config:
       - commands
 settings:
   event_subscriptions:
-    request_url: https://YOUR-PROJECT.vercel.app/slack/events
+    request_url: https://performance-pulse-lyart.vercel.app/slack/events
     bot_events:
       - app_home_opened
   interactivity:
     is_enabled: true
-    request_url: https://YOUR-PROJECT.vercel.app/slack/events
+    request_url: https://performance-pulse-lyart.vercel.app/slack/events
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
