@@ -208,6 +208,7 @@ app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
 /* The open-app button is a link. Slack still sends an event; acknowledge it
    so the button does not show a warning triangle. */
 app.action("open_app", async ({ ack }) => { await ack(); });
+app.action("open_handbook", async ({ ack }) => { await ack(); });
 
 /* ---------- /pulse: send yourself any ping, for testing ---------- */
 

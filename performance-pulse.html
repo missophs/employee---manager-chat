@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Performance Pulse — a private manager-employee 1:1 workspace -->
 <title>Performance Pulse</title>
 <style>
   :root{
@@ -302,7 +303,7 @@
   .bell:hover{background:rgba(255,255,255,.16);}
   .bell:focus-visible{outline:2px solid #fff;outline-offset:2px;}
   .bell .count{
-    position:absolute;top:-6px;right:-6px;background:var(--accent2);color:#fff;
+    position:absolute;top:-4px;right:-2px;background:var(--accent2);color:#fff;
     font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;
     display:flex;align-items:center;justify-content:center;padding:0 4px;
     box-shadow:0 2px 6px rgba(236,72,153,.5);
@@ -454,7 +455,7 @@
         </div>
         <div id="howToBody">
           <ol style="margin:6px 0 4px 20px;line-height:1.7;">
-            <li><strong>Pick your role</strong> at the top &mdash; Employee or Manager. Each of you sees your own side.</li>
+            <li><strong>The manager sets this up</strong> &mdash; fills in both names below and shares the app. The Employee / Manager switch at the top shows each side; with the cloud version, your login decides your side automatically.</li>
             <li><strong>Before your 1:1</strong>, go to <em>My 1:1</em> and add topics. Stuck for words? Use the suggested questions &mdash; or write your own.</li>
             <li><strong>The other person gets a ping</strong> that something was added &mdash; never the content itself.</li>
             <li><strong>In the meeting</strong>, work through the agenda together, mark each topic (Discussed, Needs Assistance&hellip;), and capture actions.</li>
@@ -462,6 +463,25 @@
             <li><strong>Want HR to have something?</strong> Use <em>Send to HR</em> on the Export tab &mdash; it creates the file and opens an email to your HR contact. HR is not notified automatically &mdash; they receive it, and know about it, when you choose to send it.</li>
           </ol>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Between you two</h2>
+          <button class="btn sm" id="msgSendBtn">Send a question or concern</button>
+        </div>
+        <p class="card-note">No meeting needed. Send it when it's on your mind &mdash; the other person gets notified and answers when they can. Like everything here, only the two of you see it.</p>
+        <div id="msgList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Who's in this 1:1</h2></div>
+        <p class="card-note">The manager fills these in once. They appear on topics, history, and exports.</p>
+        <div class="row">
+          <div class="field"><label for="pplEmp">Employee</label><input type="text" id="pplEmp" placeholder="Employee's name"></div>
+          <div class="field"><label for="pplMgr">Manager</label><input type="text" id="pplMgr" placeholder="Manager's name"></div>
+        </div>
+        <p class="card-note" style="margin-bottom:0;">Employee transferring, or manager leaving? Change the name here &mdash; past 1:1s in History keep the names they were written under. Proper re-pairing with sign-ins comes with the cloud version.</p>
       </div>
 
       <div class="card">
@@ -645,7 +665,7 @@
           <p class="card-note">A short summary you can both look back on. It answers: what happened, what matters, what we'll do, how we'll grow, and when we talk again.</p>
           <div class="field">
             <label for="wrapDiscussed">What we discussed</label>
-            <textarea id="wrapDiscussed" placeholder="The headline of the conversation."></textarea>
+            <textarea id="wrapDiscussed" placeholder="From our last meeting &mdash; the headline of what you talked about."></textarea>
           </div>
           <div class="field">
             <label for="wrapAgreed">What we agreed on</label>
@@ -655,10 +675,19 @@
             <label for="wrapRevisit">Topics to revisit next time</label>
             <textarea id="wrapRevisit" placeholder="Anything you ran out of time for."></textarea>
           </div>
+          <div class="field" style="margin-top:4px;">
+            <label>Start &middot; Stop &middot; Continue &mdash; the only rating here. No numbers, no scores.</label>
+          </div>
+          <div class="field"><label for="wrapStart">Start</label><input type="text" id="wrapStart" placeholder="One thing to start doing"></div>
+          <div class="field"><label for="wrapStop">Stop</label><input type="text" id="wrapStop" placeholder="One thing to stop doing"></div>
+          <div class="field"><label for="wrapContinue">Continue</label><input type="text" id="wrapContinue" placeholder="One thing that works — keep doing it"></div>
           <div class="row">
             <div class="field"><label for="wrapNext">Next conversation</label><input type="date" id="wrapNext"></div>
           </div>
-          <button class="btn" id="saveWrapBtn">Save summary &amp; close out this 1:1</button>
+          <div class="btn-row">
+            <button class="btn" id="saveWrapBtn">Save summary &amp; close out this 1:1</button>
+            <button class="btn ghost" id="clearWrapBtn">Reset this form</button>
+          </div>
           <p class="card-note" style="margin-top:10px;margin-bottom:0;">Closing out files this conversation in History, clears discussed topics, and keeps anything marked Follow up or Parking lot on the agenda.</p>
         </div>
         <div class="card">
@@ -931,13 +960,13 @@
 
   function blank(){
     return {
-      people:{ employee:"Melissa Weiss", manager:"Monte Montoya" },
+      people:{ employee:"", manager:"" },
       role:"employee",
       next1on1:{ date:"", time:"10:00", focus:"Workload, the customer rollout, and where you want support." },
       topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
       goals:[], development:[], career:[], concerns:[], actions:[],
       notifications:[], reviewDrafts:{ employee:"", manager:"" },
-      feedbackRequests:[], customSuggestions:[], documents:[], handbook:[], hrEmail:"",
+      feedbackRequests:[], customSuggestions:[], documents:[], handbook:[], hrEmail:"", messages:[],
       assist:false
     };
   }
@@ -994,12 +1023,18 @@
     return h + ":" + p[1] + " " + ap;
   }
   function initials(name){
+    if(!name || !name.trim()) return "?";
     return name.split(" ").map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
   }
 
+  /* Name helpers: blank until the pair fills them in, so shared copies never
+     show someone else's name. Display falls back to the role word. */
+  function empName(){ return (data.people.employee || "").trim() || "Employee"; }
+  function mgrName(){ return (data.people.manager || "").trim() || "Manager"; }
+
   /* current role helpers */
-  function me(){ return data.role === "manager" ? data.people.manager : data.people.employee; }
-  function them(){ return data.role === "manager" ? data.people.employee : data.people.manager; }
+  function me(){ return data.role === "manager" ? mgrName() : empName(); }
+  function them(){ return data.role === "manager" ? empName() : mgrName(); }
   function isMgr(){ return data.role === "manager"; }
 
   /* Notifications are addressed to whoever did NOT do the thing, so you are never
@@ -1202,12 +1237,6 @@
         "Is there anything I said I'd do that I haven't closed out?",
         "What would you like me to do differently next time?"
       ],
-      "Start · Stop · Continue":[
-        "What's one thing I should start doing?",
-        "What's one thing I should stop doing?",
-        "What's working that I should continue doing?",
-        "Can we do a quick start-stop-continue on how we work together?"
-      ],
       "Wins":[
         "Can I walk you through how the last project actually went?",
         "Here's something that went better than I expected — can I share it?",
@@ -1282,11 +1311,6 @@
         "What did we agree last time, and where did it land?",
         "What do you need from me before our next 1:1?",
         "What should we make sure we come back to next time?"
-      ],
-      "Start · Stop · Continue":[
-        "What should you start, stop, and continue doing this quarter?",
-        "What should I start, stop, and continue doing as your manager?",
-        "What should we start, stop, and continue about our 1:1s themselves?"
       ],
       "Wins":[
         "What went better than you expected recently?",
@@ -1366,8 +1390,8 @@
     if(!suggCat || cats.indexOf(suggCat) === -1) suggCat = cats[0];
 
     document.getElementById("suggNote").textContent = isMgr()
-      ? "Questions that tend to open a conversation up rather than close it down. Tap one to put it on the agenda for " + data.people.employee + " to see."
-      : "Things worth asking your manager. Tap one to put it on the agenda so " + data.people.manager + " sees it before you meet.";
+      ? "Questions that tend to open a conversation up rather than close it down. Tap one to put it on the agenda for " + empName() + " to see."
+      : "Things worth asking your manager. Tap one to put it on the agenda so " + mgrName() + " sees it before you meet.";
 
     document.getElementById("suggCats").innerHTML = cats.map(function(c){
       return "<button class='chip" + (c === suggCat ? " active" : "") + "' data-suggcat='" + esc(c) + "'>" + esc(c) + "</button>";
@@ -1472,7 +1496,8 @@
     { id:"blocked", q:"What's getting in your way?" },
     { id:"support", q:"Where do you need more support?" },
     { id:"next",    q:"What would you like to accomplish next?" },
-    { id:"discuss", q:"Anything you want to make sure you discuss with your manager?" }
+    { id:"discuss", q:"Anything you want to make sure you discuss with your manager?" },
+    { id:"other",   q:"Other — anything at all that's on your mind?" }
   ];
   var MGR_Q = [
     { id:"well",     q:"What is this person doing particularly well?" },
@@ -1483,7 +1508,8 @@
     { id:"support",  q:"What support can you provide?" },
     { id:"clear",    q:"Are expectations clear? What might not be landing?" },
     { id:"skills",   q:"What skills could they build next?" },
-    { id:"stretch",  q:"Is there a stretch assignment that would grow them?" }
+    { id:"stretch",  q:"Is there a stretch assignment that would grow them?" },
+    { id:"other",    q:"Other — anything at all that's on your mind?" }
   ];
 
   /* Adaptive follow-ups keyed to the answer of a given question.
@@ -1547,9 +1573,14 @@
     }
 
     if(!checkinDraft){
+      /* Show what will be asked, so nobody starts blind. Every question is
+         skippable once inside, and "Other" catches whatever the list doesn't. */
+      var qs = (isMgr() ? MGR_Q : EMP_Q);
       area.innerHTML =
-        "<div class='empty'><div class='big'>Nothing prepared yet</div>" +
-        (isMgr() ? "Six to nine short questions. Two minutes." : "Six short questions. Two minutes.") + "</div>" +
+        "<p style='font-size:13px;color:var(--muted);margin:0 0 6px;'>You'll be asked (skip any of them):</p>" +
+        "<ul style='margin:0 0 12px 20px;font-size:13.5px;line-height:1.8;color:var(--ink);'>" +
+        qs.map(function(x){ return "<li>" + x.q + "</li>"; }).join("") +
+        "</ul>" +
         "<button class='btn' id='startCheckin'>Start my check-in</button>";
       document.getElementById("startCheckin").onclick = startCheckin;
       return;
@@ -1702,7 +1733,8 @@
      ===================================================================== */
   document.getElementById("saveWrapBtn").addEventListener("click", function(){
     var discussed = mv("wrapDiscussed"), agreed = mv("wrapAgreed"),
-        revisit = mv("wrapRevisit"), next = mv("wrapNext");
+        revisit = mv("wrapRevisit"), next = mv("wrapNext"),
+        sscStart = mv("wrapStart"), sscStop = mv("wrapStop"), sscContinue = mv("wrapContinue");
     if(!discussed && !agreed){
       alert("Add at least what you discussed or what you agreed on before closing out.");
       return;
@@ -1712,19 +1744,26 @@
     data.meetings.unshift({
       id:mid, date:data.next1on1.date || today(), time:data.next1on1.time,
       discussed:discussed, agreed:agreed, revisit:revisit,
+      start:sscStart, stop:sscStop, keep:sscContinue,
       topics:closed.map(function(t){ return { text:t.text, cat:t.cat, status:t.status, notes:t.notes }; }),
       by:me(), at:now()
     });
     data.checkins.forEach(function(c){ if(!c.meetingId) c.meetingId = mid; });
     data.topics = data.topics.filter(function(t){ return t.status !== "Discussed" && t.status !== "Resolved"; });
-    document.getElementById("wrapDiscussed").value = "";
-    document.getElementById("wrapAgreed").value = "";
-    document.getElementById("wrapRevisit").value = "";
+    ["wrapDiscussed","wrapAgreed","wrapRevisit","wrapStart","wrapStop","wrapContinue"].forEach(function(id){
+      document.getElementById(id).value = "";
+    });
     if(next){ data.next1on1.date = next; }
     commit("1:1 summary saved by " + me());
     show("history");
   });
   document.getElementById("addActionFromWrap").addEventListener("click", function(){ openActionModal(); });
+  document.getElementById("clearWrapBtn").addEventListener("click", function(){
+    if(!confirm("Clear everything typed into this wrap-up? Closed-out 1:1s in History are not affected.")) return;
+    ["wrapDiscussed","wrapAgreed","wrapRevisit","wrapStart","wrapStop","wrapContinue","wrapNext"].forEach(function(id){
+      document.getElementById(id).value = "";
+    });
+  });
 
   /* Back buttons in the 1:1 flow. Everything autosaves, so going back never loses anything. */
   document.getElementById("backToPrepare").addEventListener("click", function(){ showSub("oneOnOne","prepare"); });
@@ -1874,8 +1913,8 @@
   function renderFeedback(){
     renderFeedbackRequests();
     document.getElementById("feedbackNote").textContent = isMgr()
-      ? "Feedback runs both ways here. What you write is visible to " + data.people.employee + " straight away."
-      : "You can give your manager feedback too. What you write is visible to " + data.people.manager + " straight away.";
+      ? "Feedback runs both ways here. What you write is visible to " + empName() + " straight away."
+      : "You can give your manager feedback too. What you write is visible to " + mgrName() + " straight away.";
     var el = document.getElementById("feedbackList");
     if(!data.feedback.length){
       el.innerHTML = "<div class='empty'><div class='big'>No feedback yet</div>Both of you can start this &mdash; recognition counts as feedback too.</div>";
@@ -1938,7 +1977,7 @@
   function renderConcerns(){
     var el = document.getElementById("concernsList");
     if(!data.concerns.length){
-      el.innerHTML = "<div class='empty'><div class='big'>Nothing documented</div>Notes here stay between you and " + esc(data.people.employee) + ".</div>";
+      el.innerHTML = "<div class='empty'><div class='big'>Nothing documented</div>Notes here stay between you and " + esc(empName()) + ".</div>";
       return;
     }
     el.innerHTML = "<ul class='list'>" + data.concerns.map(function(c){
@@ -1980,14 +2019,14 @@
       fArea("glWhy","Why it matters","What changes if this lands.", g.why) +
       fArea("glMeasure","How we'll know it worked","The success measure. Be concrete.", g.measure) +
       "<div class='row'>" +
-      fSelect("glOwner","Owner",[data.people.employee, data.people.manager, "Both of us"], g.owner || data.people.employee) +
+      fSelect("glOwner","Owner",[empName(), mgrName(), "Both of us"], g.owner || empName()) +
       fDate("glTarget","Target date", g.target) +
       "</div>" +
       fSelect("glStatus","Status",GOAL_STATES, g.status || "Not Started") +
       "<div class='field'><label for='glProgress'>Progress: <span id='glPct'>" + (g.progress||0) + "</span>%</label>" +
       "<input type='range' id='glProgress' min='0' max='100' step='5' value='" + (g.progress||0) + "'></div>" +
       fArea("glObstacles","What's in the way?","Blockers, dependencies, anything slowing this down.", g.obstacles) +
-      fArea("glSupport","What support is needed from " + esc(data.people.manager) + "?","Be specific about the ask.", g.support),
+      fArea("glSupport","What support is needed from " + esc(mgrName()) + "?","Be specific about the ask.", g.support),
       function(){
         var text = mv("glText");
         if(!text){ document.getElementById("glText").focus(); return; }
@@ -2038,7 +2077,7 @@
         (g.support ? "<div class='item-sub'><strong>Support needed:</strong> " + nl2br(g.support) + "</div>" : "") +
         "<div class='bar'><span style='width:" + (g.progress||0) + "%'></span></div>" +
         "<div class='item-meta'>" + goalBadge(g.status) +
-        "<span>" + (g.progress||0) + "% &middot; " + esc(g.owner || data.people.employee) +
+        "<span>" + (g.progress||0) + "% &middot; " + esc(g.owner || empName()) +
         (g.target ? " &middot; target " + fmtDate(g.target) : "") +
         " &middot; updated " + ago(g.updated || g.at) + "</span></div>" +
         (stale ? "<div class='nudge'><span>No update in three weeks. Want to talk about it at your next 1:1?</span>" +
@@ -2105,7 +2144,7 @@
       fSelect("dvType","Type",DEV_TYPES, d.type || "Stretch assignment") +
       "<div id='dvIdeas'></div>" +
       fArea("dvActivity","The activity","e.g. Present the monthly business update", d.activity) +
-      fArea("dvSupport","What " + esc(data.people.manager) + " will do to support this","e.g. Review the first two decks and give feedback", d.support) +
+      fArea("dvSupport","What " + esc(mgrName()) + " will do to support this","e.g. Review the first two decks and give feedback", d.support) +
       "<div class='row'>" + fDate("dvTarget","Target date", d.target) +
       fSelect("dvStatus","Status",DEV_STATES, d.status || "Not Started") + "</div>" +
       fArea("dvMeasure","How we'll know it worked","e.g. Confidently leads the quarterly leadership presentation", d.measure),
@@ -2164,7 +2203,7 @@
     var el = document.getElementById("devList");
     if(!data.development.length){
       el.innerHTML = "<div class='empty'><div class='big'>No development plans yet</div>" +
-        (isMgr() ? "Recommend something that stretches " + esc(data.people.employee) + " a little." : "Ask for what would help you grow.") + "</div>";
+        (isMgr() ? "Recommend something that stretches " + esc(empName()) + " a little." : "Ask for what would help you grow.") + "</div>";
       return;
     }
     el.innerHTML = "<ul class='list'>" + data.development.map(function(d){
@@ -2216,13 +2255,13 @@
 
   function careerPrompts(){
     return (isMgr() ? MGR_CAREER : EMP_CAREER).map(function(q){
-      return q.replace("{emp}", data.people.employee);
+      return q.replace("{emp}", empName());
     });
   }
 
   function renderCareer(){
     document.getElementById("careerPromptTitle").textContent = isMgr()
-      ? "How you see " + data.people.employee + " growing"
+      ? "How you see " + empName() + " growing"
       : "Where you want to go";
     document.getElementById("careerPromptNote").textContent = isMgr()
       ? "Answer what you can. Nothing here is a promise of promotion — it's how you'd help them get there."
@@ -2290,7 +2329,7 @@
       "Something one of you agreed to do, with a name and a date on it.",
       fText("acText","What needs to happen","e.g. Draft the rollout timeline", a.text) +
       "<div class='row'>" +
-      fSelect("acOwner","Owner",[data.people.employee, data.people.manager, "Both of us"], a.owner || me()) +
+      fSelect("acOwner","Owner",[empName(), mgrName(), "Both of us"], a.owner || me()) +
       fDate("acDue","Due", a.due) + "</div>" +
       fSelect("acStatus","Status",ACTION_STATES, a.status || "Open") +
       fText("acRelated","Related to","A goal, topic or conversation (optional)", a.related) +
@@ -2397,16 +2436,17 @@
   function historyEntries(){
     var out = [];
     data.meetings.forEach(function(m){
-      out.push({ cat:"1:1", at:m.at, title:"1:1 — " + data.people.employee + " with " + data.people.manager + " — " + fmtDate(m.date),
+      out.push({ cat:"1:1", at:m.at, title:"1:1 — " + empName() + " with " + mgrName() + " — " + fmtDate(m.date),
         body:[m.discussed && "Discussed: " + m.discussed, m.agreed && "Agreed: " + m.agreed,
-              m.revisit && "To revisit: " + m.revisit].filter(Boolean).join("\n"),
+              m.revisit && "To revisit: " + m.revisit,
+              (m.start || m.stop || m.keep) && "Start: " + (m.start||"—") + " · Stop: " + (m.stop||"—") + " · Continue: " + (m.keep||"—")].filter(Boolean).join("\n"),
         who:m.by });
     });
     data.checkins.forEach(function(c){
       out.push({ cat:"1:1", at:c.at, title:(c.role === "manager" ? "Manager" : "Employee") + " check-in",
         body:c.asked.filter(function(a){ return a.answer; })
           .map(function(a){ return a.q.replace(/<[^>]*>/g,"") + " — " + a.answer; }).join("\n"),
-        who:c.role === "manager" ? data.people.manager : data.people.employee });
+        who:c.role === "manager" ? mgrName() : empName() });
     });
     data.achievements.forEach(function(a){
       out.push({ cat:"Performance", at:a.at, title:"Achievement: " + a.title, body:a.impact, who:a.byName });
@@ -2482,8 +2522,8 @@
      ===================================================================== */
   document.getElementById("buildReviewBtn").addEventListener("click", function(){
     var L = [];
-    var who = isMgr() ? data.people.employee : "I";
-    L.push(isMgr() ? "REVIEW PREPARATION — " + data.people.employee : "MY REVIEW PREPARATION");
+    var who = isMgr() ? empName() : "I";
+    L.push(isMgr() ? "REVIEW PREPARATION — " + empName() : "MY REVIEW PREPARATION");
     L.push("Prepared by " + me() + " on " + new Date().toLocaleDateString());
     L.push("This is a draft for discussion. It is not a rating and has not been shared with anyone.");
     L.push("");
@@ -2594,7 +2634,7 @@
   function buildExportHtml(){
     var s = selectedScopes(), H = [];
     H.push("<h1>Performance Pulse</h1>");
-    H.push("<p><strong>" + esc(data.people.employee) + "</strong> and <strong>" + esc(data.people.manager) + "</strong><br>" +
+    H.push("<p><strong>" + esc(empName()) + "</strong> and <strong>" + esc(mgrName()) + "</strong><br>" +
       "Exported by " + esc(me()) + " on " + new Date().toLocaleString() + "</p>");
     H.push("<p style='padding:10px;border:1px solid #ccc;background:#f6f4fc;'><em>This file was created intentionally by " +
       esc(me()) + ". It was not generated or sent automatically.</em></p>");
@@ -2604,7 +2644,8 @@
       H.push("<h2>" + title + "</h2>" + body);
     }
     function ul(items){
-      if(!items.length) return "<p><em>Nothing recorded.</em></p>";
+      /* An empty section is left out of the file entirely — no "nothing recorded" filler. */
+      if(!items.length) return "";
       return "<ul>" + items.map(function(i){ return "<li>" + i + "</li>"; }).join("") + "</ul>";
     }
 
@@ -2633,7 +2674,9 @@
         return "<strong>" + fmtDate(m.date) + "</strong>" +
           (m.discussed ? "<br><strong>Discussed:</strong> " + esc(m.discussed) : "") +
           (m.agreed ? "<br><strong>Agreed:</strong> " + esc(m.agreed) : "") +
-          (m.revisit ? "<br><strong>To revisit:</strong> " + esc(m.revisit) : "");
+          (m.revisit ? "<br><strong>To revisit:</strong> " + esc(m.revisit) : "") +
+          ((m.start || m.stop || m.keep) ? "<br><strong>Start · Stop · Continue:</strong> " +
+            esc(m.start||"—") + " · " + esc(m.stop||"—") + " · " + esc(m.keep||"—") : "");
       })));
     }
     if(s.goals){
@@ -2641,7 +2684,7 @@
         return "<strong>" + esc(g.text) + "</strong> [" + esc(g.status) + ", " + (g.progress||0) + "%]" +
           (g.why ? "<br><strong>Why:</strong> " + esc(g.why) : "") +
           (g.measure ? "<br><strong>Success measure:</strong> " + esc(g.measure) : "") +
-          "<br><strong>Owner:</strong> " + esc(g.owner || data.people.employee) + (g.target ? " &middot; <strong>Target:</strong> " + esc(g.target) : "") +
+          "<br><strong>Owner:</strong> " + esc(g.owner || empName()) + (g.target ? " &middot; <strong>Target:</strong> " + esc(g.target) : "") +
           (g.obstacles ? "<br><strong>Obstacles:</strong> " + esc(g.obstacles) : "") +
           (g.support ? "<br><strong>Support needed:</strong> " + esc(g.support) : "");
       })));
@@ -2691,9 +2734,7 @@
     }
     if(s.review){
       var draft = data.reviewDrafts[data.role] || "";
-      section("Review preparation", draft
-        ? "<pre style='font-family:inherit;white-space:pre-wrap;'>" + esc(draft) + "</pre>"
-        : "<p><em>No draft saved.</em></p>");
+      if(draft) section("Review & preparation — draft", "<pre style='font-family:inherit;white-space:pre-wrap;'>" + esc(draft) + "</pre>");
     }
     return H.join("\n");
   }
@@ -2740,7 +2781,7 @@
       row("1:1 update", "1:1 summary", ["Discussed: " + (m.discussed||"—"), m.agreed ? "Agreed: " + m.agreed : "", m.revisit ? "Revisit: " + m.revisit : ""].filter(Boolean).join(" | "), "", "", m.date);
     });
     if(s.goals) data.goals.forEach(function(g){
-      row("Goals", g.text, [g.why, g.measure].filter(Boolean).join(" — "), g.status + ", " + (g.progress||0) + "%", g.owner || data.people.employee, g.target || "");
+      row("Goals", g.text, [g.why, g.measure].filter(Boolean).join(" — "), g.status + ", " + (g.progress||0) + "%", g.owner || empName(), g.target || "");
     });
     if(s.development) data.development.forEach(function(d){
       row("Development", d.area, [d.activity, d.support ? "Support: " + d.support : ""].filter(Boolean).join(" — "), d.status, "", d.target || "");
@@ -2844,6 +2885,60 @@
      ===================================================================== */
   document.getElementById("openWorkspaceBtn").addEventListener("click", function(){ show("oneOnOne"); });
 
+  /* ---- direct questions & concerns: no meeting required ---- */
+  function renderMessages(){
+    var el = document.getElementById("msgList");
+    if(!data.messages.length){
+      el.innerHTML = "<div class='empty'><div class='big'>Got something on your mind?</div>A question, a concern, a quick heads-up — send it over whenever it comes up.</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.messages.slice(0,12).map(function(m){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(m.text) + "</div>" +
+        "<div class='item-meta'><span class='badge b-purple'>" + esc(m.kind) + "</span>" +
+        "<span>" + esc(m.byName) + " &middot; " + ago(m.at) + "</span></div>" +
+        "</div><div class='item-actions'>" +
+        "<button class='btn secondary sm' data-msgreply='" + m.id + "'>Reply</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+  function openMessageModal(prefill){
+    openModal("Send a question or concern",
+      "It goes straight to " + them() + " — no meeting, no agenda, no HR.",
+      fSelect("msgKind","What is it?",["Question","Concern","Heads-up","Idea","Other"]) +
+      fArea("msgText","What do you want to say?","Say it the way you'd say it out loud.", prefill || ""),
+      function(){
+        var text = mv("msgText");
+        if(!text){ alert("Write something first."); return false; }
+        data.messages.unshift({ id:uid(), kind:mv("msgKind") || "Question", text:text, by:data.role, byName:me(), at:now() });
+        commit(me() + " sent you a " + (mv("msgKind") || "question").toLowerCase(), other());
+        renderMessages();
+      }, "Send it");
+  }
+  document.getElementById("msgSendBtn").addEventListener("click", function(){ openMessageModal(); });
+  document.getElementById("msgList").addEventListener("click", function(e){
+    var r = e.target.closest("[data-msgreply]");
+    if(!r) return;
+    var m = data.messages.find(function(x){ return x.id === r.getAttribute("data-msgreply"); });
+    if(m) openMessageModal("Re: " + m.text.slice(0, 80) + (m.text.length > 80 ? "…" : "") + "\n\n");
+  });
+  renderMessages();
+
+  /* ---- the pair's names: blank until they fill them in ---- */
+  (function(){
+    var emp = document.getElementById("pplEmp"), mgr = document.getElementById("pplMgr");
+    emp.value = data.people.employee || "";
+    mgr.value = data.people.manager || "";
+    function update(){
+      data.people.employee = emp.value.trim();
+      data.people.manager = mgr.value.trim();
+      save();
+      show("dashboard");
+    }
+    emp.addEventListener("change", update);
+    mgr.addEventListener("change", update);
+  })();
+
   /* ---- how-to instructions: collapsible, remembers the choice ---- */
   (function(){
     var toggle = document.getElementById("howToToggle"), body = document.getElementById("howToBody");
@@ -2865,7 +2960,7 @@
   function renderDocuments(){
     var el = document.getElementById("docList");
     if(!data.documents.length){
-      el.innerHTML = "<div class='empty'><div class='big'>No documents yet</div>Upload the first one — it stays between the two of you.</div>";
+      el.innerHTML = "<div class='empty'><div class='big'>Keep your documents in one place</div>Link one from OneDrive, SharePoint or Google Drive — or upload a small file. It stays between the two of you.</div>";
       return;
     }
     el.innerHTML = "<ul class='list'>" + data.documents.map(function(doc){
@@ -2934,7 +3029,7 @@
   function renderHandbook(){
     var el = document.getElementById("hbList");
     if(!data.handbook.length){
-      el.innerHTML = "<div class='empty'><div class='big'>Nothing here yet</div>Ask HR for the handbook link and add it once — then it's one click away for both of you.</div>";
+      el.innerHTML = "<div class='empty'><div class='big'>Put the handbook one click away</div>Ask HR for the link and add it once — then it's here for both of you.</div>";
       return;
     }
     el.innerHTML = "<ul class='list'>" + data.handbook.map(function(h){
@@ -2986,7 +3081,7 @@
       var attachNote = format === "pdf"
         ? "The print window just opened on my side — I'm saving it as a PDF and attaching it to this email."
         : "The file just downloaded on my side — I'm attaching it to this email.";
-      var subject = "Performance record — " + data.people.employee + " (sent by " + me() + ")";
+      var subject = "Performance record — " + empName() + " (sent by " + me() + ")";
       var body = "Hi,\n\nI'm sharing part of my Performance Pulse record with you. " + attachNote +
         "\n\nThis was sent deliberately by me, not automatically by the app.\n\n" + me();
       location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
@@ -3255,7 +3350,7 @@
   document.getElementById("ldRecommendBtn").addEventListener("click", function(){
     openModal("Recommend learning & development",
       "Say what you want to get better at. Nothing here runs unless you press the button.",
-      fArea("ldAsk", isMgr() ? "What should " + esc(data.people.employee) + " build?" : "What do you want to get better at?",
+      fArea("ldAsk", isMgr() ? "What should " + esc(empName()) + " build?" : "What do you want to get better at?",
         isMgr() ? "e.g. Presenting to senior stakeholders without losing the thread"
                 : "e.g. Being more convincing in front of senior stakeholders") +
       "<div id='ldOut'></div>",
@@ -3457,7 +3552,7 @@
     }).join("");
     var k = BK_KINDS.filter(function(x){ return x.id === bkKind; })[0] || BK_KINDS[0];
     document.getElementById("bkLabel").textContent =
-      "Sent to " + (data.role === "manager" ? data.people.manager : data.people.employee) + " · " + k.label;
+      "Sent to " + (data.role === "manager" ? mgrName() : empName()) + " · " + k.label;
     document.getElementById("bkJson").textContent = JSON.stringify(blockKit(bkKind), null, 2);
   }
 
@@ -3496,8 +3591,11 @@
     var av = document.getElementById("whoAvatar");
     av.textContent = initials(me());
     av.className = "avatar " + (isMgr() ? "mgr" : "emp");
+    var n1chip = data.next1on1.date
+      ? " · Next 1:1 " + new Date(data.next1on1.date + "T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})
+      : "";
     document.getElementById("whoName").innerHTML =
-      esc(me()) + "<small>" + (isMgr() ? "Manager — viewing " + esc(data.people.employee) : "Employee") + "</small>";
+      esc(me()) + "<small>" + (isMgr() ? "Manager — viewing " + esc(empName()) : "Employee") + esc(n1chip) + "</small>";
 
     document.getElementById("tabConcerns").style.display = isMgr() ? "" : "none";
     if(!isMgr() && subs.performance === "concerns") subs.performance = "achievements";
@@ -3553,10 +3651,8 @@
       var d0 = new Date(n1.date + "T00:00:00");
       var days = daysBetween(new Date(today() + "T00:00:00").getTime(), d0.getTime());
       var when = days === 0 ? "Today" : days === 1 ? "Tomorrow" : days > 0 ? "In " + days + " days" : Math.abs(days) + " days ago";
-      disp.innerHTML = "<div style='font-size:16px;font-weight:700;'>" +
-        d0.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}) +
-        (n1.time ? " at " + fmtTime(n1.time) : "") + "</div>" +
-        "<div class='item-meta' style='margin-top:4px;'><span class='badge " + (days < 0 ? "b-grey" : "b-purple") + "'>" + when + "</span>" +
+      disp.innerHTML =
+        "<div class='item-meta' style='margin-top:4px;'><span class='badge " + (days < 0 ? "b-grey" : "b-purple") + "'>" + when + (n1.time ? " at " + fmtTime(n1.time) : "") + "</span>" +
         "<span>" + openTopics.length + " topic" + (openTopics.length === 1 ? "" : "s") + " on the agenda</span></div>" +
         (n1.focus ? "<p style='margin:8px 0 0;font-size:13px;color:var(--muted);'>" + nl2br(n1.focus) + "</p>" : "");
     } else {
@@ -3586,7 +3682,7 @@
             "<div class='item-meta'><span class='badge b-purple'>" + esc(h.cat) + "</span><span>" +
             esc(h.who||"") + " &middot; " + ago(h.at) + "</span></div></div></li>";
         }).join("") + "</ul>"
-      : "<div class='empty'><div class='big'>Nothing yet</div>Your conversations will build up here.</div>";
+      : "<div class='empty'><div class='big'>Your story starts here</div>Everything you two do together builds up in this space.</div>";
 
     document.getElementById("notifList").innerHTML = myNotifications().length
       ? myNotifications().slice(0,8).map(function(n){

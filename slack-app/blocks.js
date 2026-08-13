@@ -13,6 +13,10 @@
 
 const APP_URL = process.env.APP_URL || "https://missophs.github.io/employee---manager-chat/";
 
+/* The employee handbook link. Set in .env — server config, so only whoever
+   runs the app (HR) can change where it points. No URL, no button. */
+const HANDBOOK_URL = process.env.HANDBOOK_URL || "";
+
 /* ---------- small builders ---------- */
 
 const header = (text = "Performance Pulse") => ({
@@ -202,7 +206,13 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
             text: { type: "plain_text", text: "Open the app", emoji: true },
             url: APP_URL,
             action_id: "open_app"
-          }
+          },
+          ...(HANDBOOK_URL ? [{
+            type: "button",
+            text: { type: "plain_text", text: "Employee handbook", emoji: true },
+            url: HANDBOOK_URL,
+            action_id: "open_handbook"
+          }] : [])
         ]
       },
       divider(),
