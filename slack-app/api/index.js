@@ -24,6 +24,28 @@ const store = require("../lib/store");
 
 const APP_URL = process.env.APP_URL || "https://missophs.github.io/employee---manager-chat/";
 
+/* Deploys are allowed to happen before the Slack secrets are configured.
+   Without them, serve a page that says exactly what is missing instead of
+   crashing — so the very first deploy already shows something helpful. */
+const MISSING = ["SLACK_SIGNING_SECRET", "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"]
+  .filter((k) => !process.env[k]);
+if (MISSING.length) {
+  module.exports = (req, res) => {
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(
+      "<!doctype html><title>Performance Pulse — almost ready</title>" +
+      "<body style='font-family:sans-serif;max-width:34em;margin:8vh auto;line-height:1.6;'>" +
+      "<h1>Almost ready</h1>" +
+      "<p>The app is deployed, but these settings are still missing in " +
+      "Vercel &rarr; Project &rarr; Settings &rarr; Environment Variables:</p>" +
+      "<ul>" + MISSING.map((k) => "<li><code>" + k + "</code></li>").join("") + "</ul>" +
+      "<p>They come from api.slack.com/apps &rarr; your app &rarr; Basic Information. " +
+      "After adding them, redeploy.</p></body>"
+    );
+  };
+  return;
+}
+
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   clientId: process.env.SLACK_CLIENT_ID,
