@@ -624,6 +624,7 @@
 
       <!-- TALK -->
       <div class="subview" id="sub-talk">
+        <button class="btn ghost sm" id="backToPrepare" style="margin-bottom:10px;">&larr; Back to Prepare</button>
         <div class="card">
           <h2>Agenda</h2>
           <p class="card-note">Mark each topic as you go. Add a note or turn it straight into an action.</p>
@@ -638,6 +639,7 @@
 
       <!-- WRAP -->
       <div class="subview" id="sub-wrap">
+        <button class="btn ghost sm" id="backToTalk" style="margin-bottom:10px;">&larr; Back to Talk &mdash; nothing typed here is lost</button>
         <div class="card">
           <h2>Wrap up this conversation</h2>
           <p class="card-note">A short summary you can both look back on. It answers: what happened, what matters, what we'll do, how we'll grow, and when we talk again.</p>
@@ -863,14 +865,14 @@
         <h2>Choose what to include</h2>
         <p class="card-note">Tick everything you want in the file.</p>
         <div id="exportOptions">
-          <label class="checkline"><input type="checkbox" data-ex="current1on1" checked> Current 1:1 (agenda and prep)</label>
-          <label class="checkline"><input type="checkbox" data-ex="past1on1s"> Past 1:1 summaries</label>
+          <label class="checkline"><input type="checkbox" data-ex="current1on1"> 1:1 &mdash; what to be prepared for and have ready</label>
+          <label class="checkline"><input type="checkbox" data-ex="past1on1s"> 1:1 updates &mdash; what you covered and agreed</label>
           <div id="pastMeetingPicker" style="display:none;margin:2px 0 10px 26px;padding-left:12px;border-left:2px solid var(--border);"></div>
-          <label class="checkline"><input type="checkbox" data-ex="goals" checked> Goals</label>
-          <label class="checkline"><input type="checkbox" data-ex="development" checked> Learning &amp; development plan</label>
-          <label class="checkline"><input type="checkbox" data-ex="performance" checked> Performance summary (achievements &amp; feedback)</label>
-          <label class="checkline"><input type="checkbox" data-ex="career" checked> Career conversations</label>
-          <label class="checkline"><input type="checkbox" data-ex="actions" checked> Action items</label>
+          <label class="checkline"><input type="checkbox" data-ex="goals"> Goals</label>
+          <label class="checkline"><input type="checkbox" data-ex="development"> Learning &amp; development plan</label>
+          <label class="checkline"><input type="checkbox" data-ex="performance"> Achievements &amp; feedback</label>
+          <label class="checkline"><input type="checkbox" data-ex="career"> Career conversations</label>
+          <label class="checkline"><input type="checkbox" data-ex="actions"> Action items</label>
           <label class="checkline"><input type="checkbox" data-ex="concerns"> Updates <span style="color:var(--faint);font-size:12px;">(manager notes)</span></label>
           <label class="checkline"><input type="checkbox" data-ex="review"> Review &amp; preparation &mdash; draft</label>
         </div>
@@ -1724,6 +1726,10 @@
   });
   document.getElementById("addActionFromWrap").addEventListener("click", function(){ openActionModal(); });
 
+  /* Back buttons in the 1:1 flow. Everything autosaves, so going back never loses anything. */
+  document.getElementById("backToPrepare").addEventListener("click", function(){ showSub("oneOnOne","prepare"); });
+  document.getElementById("backToTalk").addEventListener("click", function(){ showSub("oneOnOne","talk"); });
+
   /* =====================================================================
      ACHIEVEMENTS
      ===================================================================== */
@@ -2391,7 +2397,7 @@
   function historyEntries(){
     var out = [];
     data.meetings.forEach(function(m){
-      out.push({ cat:"1:1", at:m.at, title:"1:1 conversation — " + fmtDate(m.date),
+      out.push({ cat:"1:1", at:m.at, title:"1:1 — " + data.people.employee + " with " + data.people.manager + " — " + fmtDate(m.date),
         body:[m.discussed && "Discussed: " + m.discussed, m.agreed && "Agreed: " + m.agreed,
               m.revisit && "To revisit: " + m.revisit].filter(Boolean).join("\n"),
         who:m.by });
@@ -2620,10 +2626,10 @@
             }));
         });
       }
-      section("Current 1:1", body);
+      section("1:1 — prepared and ready", body);
     }
     if(s.past1on1s){
-      section("Past 1:1 summaries", ul(selectedMeetings().map(function(m){
+      section("1:1 updates", ul(selectedMeetings().map(function(m){
         return "<strong>" + fmtDate(m.date) + "</strong>" +
           (m.discussed ? "<br><strong>Discussed:</strong> " + esc(m.discussed) : "") +
           (m.agreed ? "<br><strong>Agreed:</strong> " + esc(m.agreed) : "") +
@@ -2728,10 +2734,10 @@
       rows.push([section, item || "", detail || "", status || "", who || "", date || ""]);
     }
     if(s.current1on1) data.topics.forEach(function(t){
-      row("Current 1:1", t.text, [t.why, t.notes].filter(Boolean).join(" — "), t.status, t.byName, "");
+      row("1:1 preparation", t.text, [t.why, t.notes].filter(Boolean).join(" — "), t.status, t.byName, "");
     });
     if(s.past1on1s) selectedMeetings().forEach(function(m){
-      row("Past 1:1", "1:1 summary", ["Discussed: " + (m.discussed||"—"), m.agreed ? "Agreed: " + m.agreed : "", m.revisit ? "Revisit: " + m.revisit : ""].filter(Boolean).join(" | "), "", "", m.date);
+      row("1:1 update", "1:1 summary", ["Discussed: " + (m.discussed||"—"), m.agreed ? "Agreed: " + m.agreed : "", m.revisit ? "Revisit: " + m.revisit : ""].filter(Boolean).join(" | "), "", "", m.date);
     });
     if(s.goals) data.goals.forEach(function(g){
       row("Goals", g.text, [g.why, g.measure].filter(Boolean).join(" — "), g.status + ", " + (g.progress||0) + "%", g.owner || data.people.employee, g.target || "");
