@@ -447,6 +447,33 @@
         <strong>Private between you and your manager.</strong> Nothing here is automatically shared with HR. If you want HR to see something, you export it and share it yourself.
       </div>
 
+      <div class="card" id="howToCard">
+        <div class="card-head">
+          <h2>How to use this</h2>
+          <button class="btn ghost sm" id="howToToggle">Hide</button>
+        </div>
+        <div id="howToBody">
+          <ol style="margin:6px 0 4px 20px;line-height:1.7;">
+            <li><strong>Pick your role</strong> at the top &mdash; Employee or Manager. Each of you sees your own side.</li>
+            <li><strong>Before your 1:1</strong>, go to <em>My 1:1</em> and add topics. Stuck for words? Use the suggested questions &mdash; or write your own.</li>
+            <li><strong>The other person gets a ping</strong> that something was added &mdash; never the content itself.</li>
+            <li><strong>In the meeting</strong>, work through the agenda together, mark each topic (Discussed, Needs Assistance&hellip;), and capture actions.</li>
+            <li><strong>Everything saves as you go.</strong> Moving between tabs never loses anything, and you can go back and change any item at any time.</li>
+            <li><strong>Want HR to have something?</strong> Export it and send it over. HR is not notified automatically &mdash; they receive it, and know about it, when you choose to send it.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Documents</h2>
+          <button class="btn sm" id="docAddBtn">Upload a document</button>
+        </div>
+        <p class="card-note">Either of you can attach files here &mdash; a review draft, a certificate, notes. They stay on this device, visible only to the two of you, like everything else. If one needs to go to HR, download it and send it over.</p>
+        <input type="file" id="docFileInput" style="display:none;">
+        <div id="docList"></div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <h2>Your next 1:1</h2>
@@ -886,7 +913,7 @@
       topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
       goals:[], development:[], career:[], concerns:[], actions:[],
       notifications:[], reviewDrafts:{ employee:"", manager:"" },
-      feedbackRequests:[], customSuggestions:[],
+      feedbackRequests:[], customSuggestions:[], documents:[],
       assist:false
     };
   }
@@ -900,6 +927,7 @@
            A plain string swap catches every field the old names appear in —
            people, byName, owners, notification text. */
         raw = raw.replace(/Maya Rivera/g, "Melissa Weiss").replace(/Alex Kim/g, "Monte Montoya");
+        raw = raw.replace(/Action Needed/g, "Needs Assistance");
         var p = JSON.parse(raw), d = blank();
         for(var k in d){ if(p[k] === undefined) p[k] = d[k]; }
         return p;
@@ -1150,6 +1178,12 @@
         "Is there anything I said I'd do that I haven't closed out?",
         "What would you like me to do differently next time?"
       ],
+      "Start · Stop · Continue":[
+        "What's one thing I should start doing?",
+        "What's one thing I should stop doing?",
+        "What's working that I should continue doing?",
+        "Can we do a quick start-stop-continue on how we work together?"
+      ],
       "Wins":[
         "Can I walk you through how the last project actually went?",
         "Here's something that went better than I expected — can I share it?",
@@ -1224,6 +1258,11 @@
         "What did we agree last time, and where did it land?",
         "What do you need from me before our next 1:1?",
         "What should we make sure we come back to next time?"
+      ],
+      "Start · Stop · Continue":[
+        "What should you start, stop, and continue doing this quarter?",
+        "What should I start, stop, and continue doing as your manager?",
+        "What should we start, stop, and continue about our 1:1s themselves?"
       ],
       "Wins":[
         "What went better than you expected recently?",
@@ -1556,9 +1595,9 @@
   /* =====================================================================
      TOPICS
      ===================================================================== */
-  var TOPIC_STATES = ["open","Discussed","Action Needed","Follow Up","Parking Lot","Resolved"];
+  var TOPIC_STATES = ["open","Discussed","Needs Assistance","Follow Up","Parking Lot","Other","Resolved"];
   function topicBadge(s){
-    var m = { "open":"b-grey","Discussed":"b-cyan","Action Needed":"b-amber","Follow Up":"b-purple","Parking Lot":"b-grey","Resolved":"b-green" };
+    var m = { "open":"b-grey","Discussed":"b-cyan","Needs Assistance":"b-amber","Follow Up":"b-purple","Parking Lot":"b-grey","Other":"b-grey","Resolved":"b-green" };
     return "<span class='badge " + (m[s]||"b-grey") + "'>" + (s === "open" ? "Not yet discussed" : esc(s)) + "</span>";
   }
 
@@ -2768,6 +2807,77 @@
      DASHBOARD BITS
      ===================================================================== */
   document.getElementById("openWorkspaceBtn").addEventListener("click", function(){ show("oneOnOne"); });
+
+  /* ---- how-to instructions: collapsible, remembers the choice ---- */
+  (function(){
+    var toggle = document.getElementById("howToToggle"), body = document.getElementById("howToBody");
+    function paint(){
+      body.style.display = data.howToHidden ? "none" : "";
+      toggle.textContent = data.howToHidden ? "Show" : "Hide";
+    }
+    toggle.addEventListener("click", function(){ data.howToHidden = !data.howToHidden; save(); paint(); });
+    paint();
+  })();
+
+  /* ---- documents: small files kept locally, either role can add ---- */
+  var DOC_LIMIT = 1.5 * 1024 * 1024;   // localStorage is small; keep files modest
+
+  function fmtSize(b){
+    return b > 1024*1024 ? (b/1024/1024).toFixed(1) + " MB" : Math.max(1, Math.round(b/1024)) + " KB";
+  }
+
+  function renderDocuments(){
+    var el = document.getElementById("docList");
+    if(!data.documents.length){
+      el.innerHTML = "<div class='empty'><div class='big'>No documents yet</div>Upload the first one — it stays between the two of you.</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.documents.map(function(doc){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(doc.name) + "</div>" +
+        "<div class='item-meta'><span>" + fmtSize(doc.size) + " &middot; added by " + esc(doc.byName) + " &middot; " + ago(doc.at) + "</span></div>" +
+        "</div><div class='item-actions'>" +
+        "<a class='btn secondary sm' href='" + doc.data + "' download='" + esc(doc.name) + "'>Download</a>" +
+        "<button class='btn ghost sm' data-docdel='" + doc.id + "'>Remove</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+
+  document.getElementById("docAddBtn").addEventListener("click", function(){
+    document.getElementById("docFileInput").click();
+  });
+  document.getElementById("docFileInput").addEventListener("change", function(){
+    var f = this.files[0];
+    this.value = "";
+    if(!f) return;
+    if(f.size > DOC_LIMIT){
+      alert("That file is " + fmtSize(f.size) + ". Keep documents under " + fmtSize(DOC_LIMIT) + " — this version stores them in the browser. Bigger files come with the cloud version.");
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(){
+      data.documents.unshift({ id:uid(), name:f.name, size:f.size, type:f.type, data:reader.result, byName:me(), at:now() });
+      try{
+        localStorage.setItem(KEY, JSON.stringify(data));
+      }catch(e){
+        data.documents.shift();
+        alert("The browser's storage is full, so that upload didn't save. Remove a document or export and clear some history, then try again.");
+        return;
+      }
+      commit(me() + " uploaded a document: " + f.name, other());
+      renderDocuments();
+    };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById("docList").addEventListener("click", function(e){
+    var del = e.target.closest("[data-docdel]");
+    if(!del) return;
+    var i = data.documents.findIndex(function(d){ return d.id === del.getAttribute("data-docdel"); });
+    if(i > -1 && confirm("Remove " + data.documents[i].name + "? The other person will no longer see it here.")){
+      data.documents.splice(i,1); save(); renderDocuments();
+    }
+  });
+  renderDocuments();
   document.getElementById("saveNext1").addEventListener("click", function(){
     data.next1on1.date = document.getElementById("n1Date").value;
     data.next1on1.time = document.getElementById("n1Time").value;
