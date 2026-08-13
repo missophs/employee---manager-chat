@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance Pulse</title>
+<style>
+  :root{
+    --shell:linear-gradient(150deg,#1a1035 0%,#2d1b5e 45%,#150f2e 100%);
+    --card:#ffffff;
+    --card-2:#faf8ff;
+    --border:#e9e4f8;
+    --text:#241b4d;
+    --muted:#7a6fa3;
+    --faint:#a99fc7;
+    --accent:#7c3aed;
+    --accent2:#ec4899;
+    --accent3:#06b6d4;
+    --accent-grad:linear-gradient(135deg,#7c3aed,#ec4899);
+    --accent-soft:#f3eeff;
+    --good:#10b981;
+    --warn:#f59e0b;
+    --risk:#ef4444;
+    --info:#06b6d4;
+    --radius:16px;
+    --shadow:0 8px 28px rgba(15,12,41,.28);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--shell);
+    background-attachment:fixed;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:236px;flex-shrink:0;
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(12px);
+    border-right:1px solid rgba(255,255,255,.12);
+    display:flex;flex-direction:column;padding:20px 14px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:0 4px;}
+  .logo{
+    width:38px;height:38px;border-radius:11px;background:var(--accent-grad);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
+    flex-shrink:0;box-shadow:0 4px 14px rgba(236,72,153,.42);
+  }
+  .brand strong{font-size:14px;display:block;line-height:1.2;color:#fff;letter-spacing:-.01em;}
+  .brand small{color:rgba(255,255,255,.55);font-size:11px;}
+  nav{display:flex;flex-direction:column;gap:3px;flex:1;}
+  .nav-item{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    text-align:left;padding:10px 12px;border:none;background:none;border-radius:10px;
+    font-size:13.5px;color:rgba(255,255,255,.72);cursor:pointer;font-family:inherit;
+    font-weight:500;transition:background .15s,color .15s;
+  }
+  .nav-item:hover{background:rgba(255,255,255,.1);color:#fff;}
+  .nav-item.active{background:var(--accent-grad);color:#fff;box-shadow:0 4px 14px rgba(124,58,237,.45);}
+  .nav-item:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  .nav-count{
+    font-size:10.5px;font-weight:700;background:rgba(255,255,255,.16);
+    padding:2px 7px;border-radius:10px;min-width:20px;text-align:center;
+  }
+  .nav-item.active .nav-count{background:rgba(255,255,255,.28);}
+  .privacy-note{
+    margin-top:14px;padding:12px;border-radius:12px;
+    background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.34);
+    font-size:11.5px;color:#7ee7bd;line-height:1.5;
+  }
+  .privacy-note strong{display:block;margin-bottom:3px;color:#a7f3d0;}
+
+  /* ---------- Main ---------- */
+  main{flex:1;min-width:0;padding:22px 30px 70px;max-width:1040px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
+  .process-flow{
+    font-size:11px;font-weight:700;letter-spacing:.05em;color:#fff;
+    background:linear-gradient(135deg,rgba(124,58,237,.9),rgba(236,72,153,.9));
+    padding:7px 14px;border-radius:20px;box-shadow:0 4px 12px rgba(124,58,237,.35);
+  }
+  .role-switch{display:flex;align-items:center;gap:10px;}
+  .role-toggle{
+    display:flex;background:rgba(255,255,255,.1);border-radius:10px;padding:3px;
+    border:1px solid rgba(255,255,255,.16);
+  }
+  .role-btn{
+    border:none;background:none;color:rgba(255,255,255,.7);font-family:inherit;
+    font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;
+  }
+  .role-btn.active{background:#fff;color:var(--accent);}
+  .role-btn:focus-visible{outline:2px solid #fff;outline-offset:1px;}
+  .avatar{
+    width:36px;height:36px;border-radius:50%;color:#fff;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;
+  }
+  .avatar.emp{background:linear-gradient(135deg,#06b6d4,#7c3aed);box-shadow:0 4px 12px rgba(6,182,212,.4);}
+  .avatar.mgr{background:linear-gradient(135deg,#f59e0b,#ec4899);box-shadow:0 4px 12px rgba(236,72,153,.4);}
+  .who{font-size:12.5px;font-weight:600;color:#fff;line-height:1.25;}
+  .who small{display:block;font-size:11px;color:rgba(255,255,255,.55);font-weight:400;}
+
+  h1{font-size:24px;margin:0 0 4px;color:#fff;letter-spacing:-.02em;text-wrap:balance;}
+  .subtitle{color:rgba(255,255,255,.66);font-size:13.5px;margin:0 0 18px;max-width:62ch;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow);
+  }
+  .card h2{font-size:15.5px;margin:0 0 3px;letter-spacing:-.01em;}
+  .card h3{font-size:13.5px;margin:0 0 8px;}
+  .card-note{font-size:12.5px;color:var(--muted);margin:0 0 12px;}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .card-head h2{margin:0;}
+
+  /* ---------- Stats ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:14px;}
+  .stat{
+    border:none;border-radius:var(--radius);padding:15px 16px;cursor:pointer;color:#fff;
+    text-align:left;font-family:inherit;display:block;width:100%;
+    transition:transform .15s,box-shadow .15s;
+  }
+  .stat:hover{transform:translateY(-3px);}
+  .stat:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  .stat .num{font-size:27px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;}
+  .stat .label{font-size:11px;font-weight:700;color:rgba(255,255,255,.92);text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+  .stat .desc{font-size:11.5px;color:rgba(255,255,255,.8);margin-top:5px;line-height:1.4;}
+  .s-purple{background:linear-gradient(135deg,#7c3aed,#a855f7);box-shadow:0 8px 20px rgba(124,58,237,.35);}
+  .s-pink{background:linear-gradient(135deg,#ec4899,#f472b6);box-shadow:0 8px 20px rgba(236,72,153,.35);}
+  .s-cyan{background:linear-gradient(135deg,#06b6d4,#22d3ee);box-shadow:0 8px 20px rgba(6,182,212,.35);}
+  .s-green{background:linear-gradient(135deg,#10b981,#34d399);box-shadow:0 8px 20px rgba(16,185,129,.35);}
+  .s-amber{background:linear-gradient(135deg,#f59e0b,#fbbf24);box-shadow:0 8px 20px rgba(245,158,11,.35);}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    background:var(--accent-grad);color:#fff;border:none;padding:10px 17px;border-radius:10px;
+    font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;
+    box-shadow:0 4px 12px rgba(124,58,237,.3);transition:transform .12s;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn:active{transform:translateY(0);}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn.secondary{background:var(--accent-soft);color:var(--accent);box-shadow:none;}
+  .btn.ghost{background:none;color:var(--muted);border:1px solid var(--border);box-shadow:none;font-weight:600;}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px;}
+  .btn.danger{background:#fee2e2;color:var(--risk);box-shadow:none;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+
+  /* ---------- Forms ---------- */
+  input[type=text],input[type=date],input[type=time],input[type=number],textarea,select{
+    width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;
+    font-size:13.5px;font-family:inherit;background:#fff;color:var(--text);
+  }
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent);}
+  textarea{resize:vertical;min-height:70px;line-height:1.5;}
+  label{font-size:11.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em;}
+  .field{margin-bottom:12px;}
+  .field .hint{font-size:11.5px;color:var(--faint);margin-top:4px;text-transform:none;letter-spacing:0;font-weight:400;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;}
+  .row .field{flex:1;min-width:150px;margin-bottom:12px;}
+  .inline-form{display:flex;gap:8px;margin-bottom:4px;}
+  .inline-form input,.inline-form select{flex:1;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+
+  /* ---------- Lists ---------- */
+  ul.list{list-style:none;margin:0;padding:0;}
+  ul.list li{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding:12px 0;border-bottom:1px solid var(--border);
+  }
+  ul.list li:last-child{border-bottom:none;}
+  ul.list li:first-child{padding-top:2px;}
+  .item-body{min-width:0;flex:1;}
+  .item-text{font-size:13.5px;line-height:1.45;font-weight:600;}
+  .item-sub{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .item-meta{font-size:11px;color:var(--faint);margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .item-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;}
+  .done-text{text-decoration:line-through;color:var(--muted);}
+
+  .badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  .b-grey{background:#f1eefb;color:var(--muted);}
+  .b-purple{background:#ede9fe;color:#6d28d9;}
+  .b-pink{background:#fce7f3;color:#be185d;}
+  .b-cyan{background:#cffafe;color:#0e7490;}
+  .b-green{background:#d1fae5;color:#047857;}
+  .b-amber{background:#fef3c7;color:#b45309;}
+  .b-red{background:#fee2e2;color:#b91c1c;}
+
+  .empty{text-align:center;padding:26px 12px;color:var(--muted);font-size:13px;}
+  .empty .big{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px;}
+
+  /* ---------- Progress ---------- */
+  .bar{height:7px;background:#efeafb;border-radius:20px;overflow:hidden;margin-top:8px;}
+  .bar span{display:block;height:100%;background:var(--accent-grad);border-radius:20px;transition:width .3s;}
+
+  /* ---------- Tabs ---------- */
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .tab{
+    border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:rgba(255,255,255,.78);
+    font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;
+  }
+  .tab:hover{background:rgba(255,255,255,.15);color:#fff;}
+  .tab.active{background:#fff;color:var(--accent);border-color:#fff;}
+  .tab:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  .subview{display:none;}
+  .subview.active{display:block;}
+
+  /* ---------- Stepper ---------- */
+  .step{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);
+  }
+  .step-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .step-num{
+    width:26px;height:26px;border-radius:50%;background:var(--accent-grad);color:#fff;
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:0 3px 8px rgba(236,72,153,.35);
+  }
+  .step-head h3{margin:0;font-size:14.5px;}
+  .step-head .kicker{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+
+  /* ---------- Coach / nudge ---------- */
+  .coach{
+    background:linear-gradient(135deg,#f3eeff,#fdf2f8);border:1px solid #e4d9fb;
+    border-radius:12px;padding:12px 14px;margin-top:10px;font-size:13px;color:#4c2d92;line-height:1.5;
+  }
+  .coach strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;color:#7c3aed;}
+  .nudge{
+    background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:11px 13px;
+    margin-top:10px;font-size:12.5px;color:#92400e;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;
+  }
+
+  /* ---------- Check-in ---------- */
+  .qa{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .qa:last-of-type{border-bottom:none;}
+  .qa .q{font-size:13.5px;font-weight:700;margin-bottom:7px;}
+  .qa .a{font-size:13px;color:var(--muted);white-space:pre-wrap;line-height:1.55;}
+  .qa.followup{margin-left:16px;padding-left:14px;border-left:3px solid #e4d9fb;border-bottom:none;}
+  .qa.followup .q{color:#6d28d9;font-size:13px;}
+  .progress-dots{display:flex;gap:5px;margin-bottom:14px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--border);}
+  .dot.done{background:var(--accent);}
+  .dot.now{background:var(--accent2);transform:scale(1.35);}
+
+  /* ---------- Notifications ---------- */
+  .notif{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .notif:last-child{border-bottom:none;}
+  .notif.unread .item-text{font-weight:700;}
+  .udot{width:7px;height:7px;border-radius:50%;background:var(--accent2);flex-shrink:0;margin-top:6px;}
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(15,12,41,.68);backdrop-filter:blur(4px);
+    display:none;align-items:flex-start;justify-content:center;padding:24px 16px;z-index:100;overflow-y:auto;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--card);border-radius:18px;max-width:620px;width:100%;padding:22px 24px;
+    box-shadow:0 24px 60px rgba(0,0,0,.4);margin:auto;
+  }
+  .modal h2{margin:0 0 4px;font-size:17px;}
+  .modal .mnote{font-size:12.5px;color:var(--muted);margin:0 0 16px;}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap;}
+
+  /* ---------- Filters ---------- */
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .chip{
+    border:1px solid var(--border);background:#fff;color:var(--muted);font-family:inherit;
+    font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;
+  }
+  .chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .timeline li{position:relative;padding-left:18px;}
+  .timeline li::before{
+    content:"";position:absolute;left:0;top:17px;width:8px;height:8px;border-radius:50%;
+    background:var(--accent);
+  }
+  .timeline li:first-child::before{top:7px;}
+
+  .checkline{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;}
+  .checkline input{width:auto;margin:0;accent-color:var(--accent);width:16px;height:16px;}
+
+  .privacy-banner{
+    background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.34);border-radius:12px;
+    padding:12px 15px;margin-bottom:16px;font-size:12.5px;color:#a7f3d0;line-height:1.5;
+  }
+  .privacy-banner strong{color:#d1fae5;}
+
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px;margin-top:8px;}
+  .kv dt{color:var(--faint);font-weight:600;}
+  .kv dd{margin:0;color:var(--text);}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;animation:none !important;}
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width:820px){
+    .app{flex-direction:column;}
+    .sidebar{
+      width:100%;flex-direction:row;align-items:center;gap:8px;padding:10px 12px;
+      border-right:none;border-bottom:1px solid rgba(255,255,255,.12);
+      position:sticky;top:0;z-index:30;background:rgba(21,15,46,.94);backdrop-filter:blur(14px);
+    }
+    .brand{margin-bottom:0;flex-shrink:0;}
+    .brand div{display:none;}
+    nav{flex-direction:row;flex-wrap:nowrap;overflow-x:auto;flex:1;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    nav::-webkit-scrollbar{display:none;}
+    .nav-item{flex-shrink:0;padding:8px 12px;font-size:13px;}
+    .privacy-note{display:none;}
+    main{padding:16px 14px 48px;}
+    .topbar{flex-direction:column;align-items:stretch;gap:10px;}
+    .role-switch{justify-content:space-between;}
+    .grid{grid-template-columns:repeat(2,1fr);}
+    .inline-form{flex-direction:column;}
+    .inline-form .btn{width:100%;}
+    h1{font-size:21px;}
+    ul.list li{flex-direction:column;align-items:stretch;}
+    .item-actions{justify-content:flex-start;}
+    .modal{padding:18px 16px;border-radius:16px;}
+    input[type=text],input[type=date],input[type=time],textarea,select{font-size:16px;}
+  }
+  @media (max-width:420px){
+    .grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">PP</div>
+      <div>
+        <strong>Performance Pulse</strong>
+        <small>Private manager-employee app</small>
+      </div>
+    </div>
+    <nav id="nav">
+      <button class="nav-item" data-view="dashboard">Dashboard</button>
+      <button class="nav-item" data-view="oneOnOne">My 1:1 <span class="nav-count" id="navTopics">0</span></button>
+      <button class="nav-item" data-view="performance">Performance</button>
+      <button class="nav-item" data-view="goals">Goals <span class="nav-count" id="navGoals">0</span></button>
+      <button class="nav-item" data-view="development">Development <span class="nav-count" id="navDev">0</span></button>
+      <button class="nav-item" data-view="career">Career</button>
+      <button class="nav-item" data-view="actions">Actions <span class="nav-count" id="navActions">0</span></button>
+      <button class="nav-item" data-view="history">History</button>
+      <button class="nav-item" data-view="export">Export</button>
+    </nav>
+    <div class="privacy-note">
+      <strong>Private workspace.</strong>
+      Only you and your manager can see this. Nothing is automatically shared with HR.
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div class="process-flow">PREPARE &rarr; TALK &rarr; REFLECT &rarr; ACT &rarr; FOLLOW UP</div>
+      <div class="role-switch">
+        <div class="role-toggle" role="group" aria-label="Switch view">
+          <button class="role-btn" id="roleEmp" data-role="employee">Employee</button>
+          <button class="role-btn" id="roleMgr" data-role="manager">Manager</button>
+        </div>
+        <div class="avatar" id="whoAvatar">MR</div>
+        <div class="who" id="whoName"></div>
+      </div>
+    </div>
+
+    <!-- ================= DASHBOARD ================= -->
+    <section id="view-dashboard" class="view">
+      <h1>Dashboard</h1>
+      <p class="subtitle">Ongoing performance conversations &mdash; no ratings, no rankings, no automatic HR reporting.</p>
+      <div class="privacy-banner">
+        <strong>Private between you and your manager.</strong> Nothing here is automatically shared with HR. If you want HR to see something, you export it and share it yourself.
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Your next 1:1</h2>
+          <button class="btn sm" id="openWorkspaceBtn">Open 1:1 workspace</button>
+        </div>
+        <div id="next1Display"></div>
+        <div class="row" style="margin-top:12px;">
+          <div class="field"><label for="n1Date">Date</label><input type="date" id="n1Date"></div>
+          <div class="field"><label for="n1Time">Time</label><input type="time" id="n1Time"></div>
+        </div>
+        <div class="field">
+          <label for="n1Focus">What this conversation is for</label>
+          <textarea id="n1Focus" placeholder="What should this 1:1 focus on?"></textarea>
+        </div>
+        <button class="btn secondary sm" id="saveNext1">Save details</button>
+      </div>
+
+      <div class="grid">
+        <button class="stat s-purple" data-jump="oneOnOne">
+          <div class="num" id="statTopics">0</div><div class="label">Open topics</div>
+          <div class="desc">Waiting to be discussed.</div>
+        </button>
+        <button class="stat s-pink" data-jump="goals">
+          <div class="num" id="statGoals">0</div><div class="label">Active goals</div>
+          <div class="desc" id="statGoalsDesc">Average progress 0%.</div>
+        </button>
+        <button class="stat s-cyan" data-jump="actions">
+          <div class="num" id="statActions">0</div><div class="label">Open actions</div>
+          <div class="desc" id="statActionsDesc">Nothing overdue.</div>
+        </button>
+        <button class="stat s-green" data-jump="development">
+          <div class="num" id="statDev">0</div><div class="label">Development</div>
+          <div class="desc">Growth plans in progress.</div>
+        </button>
+        <button class="stat s-amber" data-jump="history">
+          <div class="num" id="statNotifs">0</div><div class="label">Updates</div>
+          <div class="desc">Unread activity from you both.</div>
+        </button>
+      </div>
+
+      <div class="card">
+        <h2>Topics on the agenda</h2>
+        <p class="card-note">What you and your manager have each added for the next conversation.</p>
+        <div id="dashTopics"></div>
+      </div>
+
+      <div class="card">
+        <h2>Coming up</h2>
+        <p class="card-note">Actions due soon or already past their date.</p>
+        <div id="dashActions"></div>
+      </div>
+
+      <div class="card">
+        <h2>Recent conversations</h2>
+        <div id="dashRecent"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Updates</h2>
+          <button class="btn ghost sm" id="markAllRead">Mark all read</button>
+        </div>
+        <p class="card-note">
+          In this prototype, alerts appear here for both of you. Real email, calendar, or Slack notifications would need a backend and user accounts.
+        </p>
+        <div id="notifList"></div>
+      </div>
+    </section>
+
+    <!-- ================= MY 1:1 ================= -->
+    <section id="view-oneOnOne" class="view">
+      <h1>My 1:1</h1>
+      <p class="subtitle">Prepare, talk, reflect, act, follow up &mdash; one conversation at a time.</p>
+
+      <div class="tabs" data-tabgroup="oneOnOne">
+        <button class="tab" data-sub="prepare">1. Prepare</button>
+        <button class="tab" data-sub="talk">2. Talk</button>
+        <button class="tab" data-sub="wrap">3. Wrap up</button>
+      </div>
+
+      <!-- PREPARE -->
+      <div class="subview" id="sub-prepare">
+        <div class="step">
+          <div class="step-head"><div class="step-num">1</div>
+            <div><span class="kicker">Prepare</span><h3 id="checkinTitle">Your check-in</h3></div>
+          </div>
+          <p class="card-note" id="checkinNote"></p>
+          <div id="checkinArea"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><div class="step-num">2</div>
+            <div><span class="kicker">Prepare</span><h3>Add something to discuss</h3></div>
+          </div>
+          <p class="card-note">Both of you can add topics before the meeting. The other person sees them right away.</p>
+          <div class="row">
+            <div class="field" style="flex:2;">
+              <label for="topicText">I want to discuss&hellip;</label>
+              <input type="text" id="topicText" placeholder="e.g. How we're staffing the Q3 rollout">
+            </div>
+            <div class="field">
+              <label for="topicCat">Category</label>
+              <select id="topicCat">
+                <option>Wins</option><option>Priorities</option><option>Roadblocks</option>
+                <option>Workload</option><option>Feedback</option><option>Recognition</option>
+                <option>Career</option><option>Development</option><option>Team issues</option>
+                <option>Questions</option><option>Support needed</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="topicWhy">Why it matters <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+            <textarea id="topicWhy" placeholder="A sentence of context so the conversation starts warm."></textarea>
+          </div>
+          <button class="btn" id="addTopicBtn">Add topic</button>
+        </div>
+      </div>
+
+      <!-- TALK -->
+      <div class="subview" id="sub-talk">
+        <div class="card">
+          <h2>Agenda</h2>
+          <p class="card-note">Mark each topic as you go. Add a note or turn it straight into an action.</p>
+          <div id="talkTopics"></div>
+        </div>
+        <div class="card">
+          <h2>Parking lot</h2>
+          <p class="card-note">Worth talking about &mdash; just not today.</p>
+          <div id="parkingTopics"></div>
+        </div>
+      </div>
+
+      <!-- WRAP -->
+      <div class="subview" id="sub-wrap">
+        <div class="card">
+          <h2>Wrap up this conversation</h2>
+          <p class="card-note">A short summary you can both look back on. It answers: what happened, what matters, what we'll do, how we'll grow, and when we talk again.</p>
+          <div class="field">
+            <label for="wrapDiscussed">What we discussed</label>
+            <textarea id="wrapDiscussed" placeholder="The headline of the conversation."></textarea>
+          </div>
+          <div class="field">
+            <label for="wrapAgreed">What we agreed on</label>
+            <textarea id="wrapAgreed" placeholder="Decisions, expectations, anything you both signed up for."></textarea>
+          </div>
+          <div class="field">
+            <label for="wrapRevisit">Topics to revisit next time</label>
+            <textarea id="wrapRevisit" placeholder="Anything you ran out of time for."></textarea>
+          </div>
+          <div class="row">
+            <div class="field"><label for="wrapNext">Next conversation</label><input type="date" id="wrapNext"></div>
+          </div>
+          <button class="btn" id="saveWrapBtn">Save summary &amp; close out this 1:1</button>
+          <p class="card-note" style="margin-top:10px;margin-bottom:0;">Closing out files this conversation in History, clears discussed topics, and keeps anything marked Follow up or Parking lot on the agenda.</p>
+        </div>
+        <div class="card">
+          <h2>Actions from this conversation</h2>
+          <div id="wrapActions"></div>
+          <button class="btn secondary sm" id="addActionFromWrap" style="margin-top:10px;">Add an action</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PERFORMANCE ================= -->
+    <section id="view-performance" class="view">
+      <h1>Performance</h1>
+      <p class="subtitle">What's been accomplished, what feedback you've traded, and what to raise. No scores, no rankings.</p>
+      <div class="tabs" data-tabgroup="performance">
+        <button class="tab" data-sub="achievements">Achievements</button>
+        <button class="tab" data-sub="feedback">Feedback</button>
+        <button class="tab" data-sub="concerns" id="tabConcerns">Concerns</button>
+        <button class="tab" data-sub="review">Review prep</button>
+      </div>
+
+      <div class="subview" id="sub-achievements">
+        <div class="card">
+          <div class="card-head"><h2>Achievements</h2>
+            <button class="btn sm" id="addAchievementBtn">Add an achievement</button></div>
+          <p class="card-note">Capture the good stuff as it happens, so review time isn't a memory test.</p>
+          <div id="achievementsList"></div>
+        </div>
+      </div>
+
+      <div class="subview" id="sub-feedback">
+        <div class="card">
+          <div class="card-head"><h2>Feedback</h2>
+            <button class="btn sm" id="addFeedbackBtn">Give feedback</button></div>
+          <p class="card-note" id="feedbackNote"></p>
+          <div id="feedbackList"></div>
+        </div>
+      </div>
+
+      <div class="subview" id="sub-concerns">
+        <div class="card">
+          <div class="card-head"><h2>Performance concerns</h2>
+            <button class="btn sm" id="addConcernBtn">Document a concern</button></div>
+          <p class="card-note">Manager-only notes. This stays between the two of you &mdash; it is not sent to HR and creates no formal record anywhere else. Stick to what happened and when.</p>
+          <div id="concernsList"></div>
+        </div>
+      </div>
+
+      <div class="subview" id="sub-review">
+        <div class="card">
+          <div class="card-head"><h2>Review preparation</h2>
+            <button class="btn sm" id="buildReviewBtn">Build my draft</button></div>
+          <p class="card-note">Pulls together everything from this workspace into a draft you can edit. Nothing here becomes an official rating &mdash; it's your prep, in your words.</p>
+          <div class="field">
+            <label for="reviewDraft">Draft summary</label>
+            <textarea id="reviewDraft" style="min-height:280px;" placeholder="Click &quot;Build my draft&quot; to pull in your accomplishments, goals, feedback and development, then edit freely."></textarea>
+          </div>
+          <div class="btn-row">
+            <button class="btn secondary" id="saveReviewBtn">Save draft</button>
+            <button class="btn ghost" id="exportReviewBtn">Export this draft</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= GOALS ================= -->
+    <section id="view-goals" class="view">
+      <h1>Goals</h1>
+      <p class="subtitle">Set together, revisited in your 1:1s. Accountability with support, not pressure.</p>
+      <div class="card">
+        <div class="card-head"><h2>Goals</h2>
+          <button class="btn sm" id="addGoalBtn">Add a goal</button></div>
+        <div id="goalsList"></div>
+      </div>
+    </section>
+
+    <!-- ================= DEVELOPMENT ================= -->
+    <section id="view-development" class="view">
+      <h1>Learning &amp; development</h1>
+      <p class="subtitle">Either of you can start this. Managers recommend, employees request &mdash; both count.</p>
+      <div class="card">
+        <div class="card-head"><h2>Development plans</h2>
+          <button class="btn sm" id="addDevBtn" >Add a development plan</button></div>
+        <div id="devList"></div>
+      </div>
+    </section>
+
+    <!-- ================= CAREER ================= -->
+    <section id="view-career" class="view">
+      <h1>Career</h1>
+      <p class="subtitle">Where you want to go, and what would help you get there. Nothing here promises a promotion &mdash; it's a conversation, not a commitment.</p>
+      <div class="card">
+        <h2 id="careerPromptTitle">Career conversation</h2>
+        <p class="card-note" id="careerPromptNote"></p>
+        <div id="careerPrompts"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>What you've both said</h2>
+          <button class="btn secondary sm" id="careerToDevBtn">Turn this into a development plan</button></div>
+        <div id="careerList"></div>
+      </div>
+    </section>
+
+    <!-- ================= ACTIONS ================= -->
+    <section id="view-actions" class="view">
+      <h1>Actions</h1>
+      <p class="subtitle">Everything you both agreed to do, and by when.</p>
+      <div class="card">
+        <div class="card-head"><h2>Actions</h2>
+          <button class="btn sm" id="addActionBtn">Add an action</button></div>
+        <div class="filters" id="actionFilters">
+          <button class="chip active" data-afilter="open">Open</button>
+          <button class="chip" data-afilter="mine">Mine</button>
+          <button class="chip" data-afilter="overdue">Overdue</button>
+          <button class="chip" data-afilter="done">Done</button>
+          <button class="chip" data-afilter="all">All</button>
+        </div>
+        <div id="actionsList"></div>
+      </div>
+    </section>
+
+    <!-- ================= HISTORY ================= -->
+    <section id="view-history" class="view">
+      <h1>History</h1>
+      <p class="subtitle">Every meaningful conversation, in order. Search it, filter it, export any of it.</p>
+      <div class="card">
+        <div class="field">
+          <label for="historySearch">Search</label>
+          <input type="text" id="historySearch" placeholder="Search everything in this workspace&hellip;">
+        </div>
+        <div class="filters" id="historyFilters">
+          <button class="chip active" data-hfilter="all">All</button>
+          <button class="chip" data-hfilter="1:1">1:1</button>
+          <button class="chip" data-hfilter="Performance">Performance</button>
+          <button class="chip" data-hfilter="Goals">Goals</button>
+          <button class="chip" data-hfilter="Development">Development</button>
+          <button class="chip" data-hfilter="Career">Career</button>
+          <button class="chip" data-hfilter="Feedback">Feedback</button>
+          <button class="chip" data-hfilter="Actions">Actions</button>
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </section>
+
+    <!-- ================= EXPORT ================= -->
+    <section id="view-export" class="view">
+      <h1>Export</h1>
+      <p class="subtitle">You decide what leaves this app. Nothing is ever sent anywhere automatically.</p>
+      <div class="privacy-banner">
+        <strong>Nothing is sent to HR automatically &mdash; ever.</strong> Exporting creates a file on your device. You choose who sees it, and when.
+      </div>
+      <div class="card">
+        <h2>Choose what to include</h2>
+        <p class="card-note">Tick everything you want in the file.</p>
+        <div id="exportOptions">
+          <label class="checkline"><input type="checkbox" data-ex="current1on1" checked> Current 1:1 (agenda and prep)</label>
+          <label class="checkline"><input type="checkbox" data-ex="past1on1s"> Past 1:1 summaries</label>
+          <label class="checkline"><input type="checkbox" data-ex="goals" checked> Goals</label>
+          <label class="checkline"><input type="checkbox" data-ex="development"> Development plan</label>
+          <label class="checkline"><input type="checkbox" data-ex="performance"> Performance summary (achievements &amp; feedback)</label>
+          <label class="checkline"><input type="checkbox" data-ex="career"> Career conversations</label>
+          <label class="checkline"><input type="checkbox" data-ex="actions" checked> Action items</label>
+          <label class="checkline"><input type="checkbox" data-ex="concerns"> Documented concerns <span style="color:var(--faint);font-size:12px;">(manager notes)</span></label>
+          <label class="checkline"><input type="checkbox" data-ex="review"> Review preparation draft</label>
+        </div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="btn ghost sm" id="selectAllEx">Select all</button>
+          <button class="btn ghost sm" id="selectNoneEx">Clear all</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Create the file</h2>
+        <p class="card-note">Word opens in Word, Pages, or Google Docs. PDF opens your print dialog &mdash; choose &ldquo;Save as PDF&rdquo;.</p>
+        <div class="btn-row">
+          <button class="btn" id="exportWordBtn">Download as Word</button>
+          <button class="btn secondary" id="exportPdfBtn">Save as PDF</button>
+          <button class="btn ghost" id="exportJsonBtn">Download raw data (JSON)</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle"></h2>
+    <p class="mnote" id="modalNote"></p>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="modalCancel">Cancel</button>
+      <button class="btn" id="modalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =====================================================================
+     DATA
+     ===================================================================== */
+  var KEY = "performancePulse.v2";
+
+  function blank(){
+    return {
+      people:{ employee:"Maya Rivera", manager:"Alex Kim" },
+      role:"employee",
+      next1on1:{ date:"", time:"10:00", focus:"Workload, the customer rollout, and where you want support." },
+      topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
+      goals:[], development:[], career:[], concerns:[], actions:[],
+      notifications:[], reviewDrafts:{ employee:"", manager:"" }
+    };
+  }
+
+  var data = load();
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){
+        var p = JSON.parse(raw), d = blank();
+        for(var k in d){ if(p[k] === undefined) p[k] = d[k]; }
+        return p;
+      }
+    }catch(e){}
+    return blank();
+  }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function now(){ return new Date().toISOString(); }
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+  function ago(iso){
+    var m = Math.floor((Date.now() - new Date(iso).getTime())/60000);
+    if(m < 1) return "just now";
+    if(m < 60) return m + "m ago";
+    if(m < 1440) return Math.floor(m/60) + "h ago";
+    var d = Math.floor(m/1440);
+    if(d === 1) return "yesterday";
+    if(d < 30) return d + " days ago";
+    return new Date(iso).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+  }
+  function fmtDate(s){
+    if(!s) return "";
+    var d = new Date(s + "T00:00:00");
+    if(isNaN(d)) return s;
+    return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+  }
+  function fmtTime(t){
+    if(!t) return "";
+    var p = t.split(":"), h = parseInt(p[0],10), ap = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return h + ":" + p[1] + " " + ap;
+  }
+  function initials(name){
+    return name.split(" ").map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
+  }
+
+  /* current role helpers */
+  function me(){ return data.role === "manager" ? data.people.manager : data.people.employee; }
+  function them(){ return data.role === "manager" ? data.people.employee : data.people.manager; }
+  function isMgr(){ return data.role === "manager"; }
+
+  function notify(text){
+    data.notifications.unshift({ id:uid(), text:text, by:me(), read:false, at:now() });
+    if(data.notifications.length > 60) data.notifications.length = 60;
+  }
+  function commit(text){
+    if(text) notify(text);
+    save();
+    render();
+  }
+
+  /* =====================================================================
+     NAVIGATION
+     ===================================================================== */
+  var VIEWS = ["dashboard","oneOnOne","performance","goals","development","career","actions","history","export"];
+  var current = "dashboard";
+  var subs = { oneOnOne:"prepare", performance:"achievements" };
+
+  function show(v){
+    current = v;
+    VIEWS.forEach(function(x){
+      document.getElementById("view-" + x).classList.toggle("active", x === v);
+    });
+    document.querySelectorAll("#nav .nav-item").forEach(function(b){
+      b.classList.toggle("active", b.dataset.view === v);
+    });
+    window.scrollTo(0,0);
+    render();
+  }
+  function showSub(group, name){
+    subs[group] = name;
+    render();
+  }
+
+  document.getElementById("nav").addEventListener("click", function(e){
+    var b = e.target.closest(".nav-item");
+    if(b) show(b.dataset.view);
+  });
+  document.querySelectorAll(".tabs").forEach(function(tabs){
+    tabs.addEventListener("click", function(e){
+      var t = e.target.closest(".tab");
+      if(t) showSub(tabs.dataset.tabgroup, t.dataset.sub);
+    });
+  });
+  document.querySelectorAll("[data-jump]").forEach(function(el){
+    el.addEventListener("click", function(){ show(el.dataset.jump); });
+  });
+
+  /* role switch */
+  document.querySelectorAll(".role-btn").forEach(function(b){
+    b.addEventListener("click", function(){
+      data.role = b.dataset.role;
+      checkinDraft = null;
+      commit(null);
+    });
+  });
+
+  /* =====================================================================
+     MODAL
+     ===================================================================== */
+  var overlay = document.getElementById("overlay");
+  var modalSaveHandler = null;
+
+  function openModal(title, note, bodyHtml, onSave, saveLabel){
+    document.getElementById("modalTitle").textContent = title;
+    var noteEl = document.getElementById("modalNote");
+    noteEl.innerHTML = note || "";
+    noteEl.style.display = note ? "" : "none";
+    document.getElementById("modalBody").innerHTML = bodyHtml;
+    document.getElementById("modalSave").textContent = saveLabel || "Save";
+    modalSaveHandler = onSave;
+    overlay.classList.add("open");
+    var first = overlay.querySelector("input,textarea,select");
+    if(first) first.focus();
+  }
+  function closeModal(){
+    overlay.classList.remove("open");
+    modalSaveHandler = null;
+    document.getElementById("modalBody").innerHTML = "";
+  }
+  document.getElementById("modalCancel").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && overlay.classList.contains("open")) closeModal();
+  });
+  document.getElementById("modalSave").addEventListener("click", function(){
+    if(modalSaveHandler) modalSaveHandler();
+  });
+  function mv(id){
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : "";
+  }
+
+  /* field builders for modals */
+  function fText(id, label, ph, val){
+    return "<div class='field'><label for='" + id + "'>" + label + "</label>" +
+      "<input type='text' id='" + id + "' placeholder='" + esc(ph||"") + "' value='" + esc(val||"") + "'></div>";
+  }
+  function fArea(id, label, ph, val, hint){
+    return "<div class='field'><label for='" + id + "'>" + label + "</label>" +
+      "<textarea id='" + id + "' placeholder='" + esc(ph||"") + "'>" + esc(val||"") + "</textarea>" +
+      (hint ? "<div class='hint'>" + hint + "</div>" : "") + "</div>";
+  }
+  function fDate(id, label, val){
+    return "<div class='field'><label for='" + id + "'>" + label + "</label>" +
+      "<input type='date' id='" + id + "' value='" + esc(val||"") + "'></div>";
+  }
+  function fSelect(id, label, opts, val){
+    return "<div class='field'><label for='" + id + "'>" + label + "</label><select id='" + id + "'>" +
+      opts.map(function(o){
+        return "<option" + (o === val ? " selected" : "") + ">" + esc(o) + "</option>";
+      }).join("") + "</select></div>";
+  }
+
+  /* =====================================================================
+     COACHING (rule-based, no backend)
+     ===================================================================== */
+  /* Phrases that describe character or intent rather than something observable.
+     Apostrophes are stripped before matching so "don't" and "dont" both hit. */
+  var VAGUE = ["needs improvement","needs to improve","not great","poor","bad at","better at",
+    "more proactive","attitude","communication","professionalism","lacks","struggles",
+    "dont care","doesnt care","dont seem","doesnt seem","not committed","not engaged",
+    "never","always","not a team player","low energy","difficult","lazy","careless","sloppy",
+    "unreliable","disorganised","disorganized","checked out","no urgency","not motivated"];
+
+  function isVague(text){
+    if(!text) return false;
+    var t = text.toLowerCase().replace(/[’']/g,"");
+    var hit = VAGUE.some(function(v){ return t.indexOf(v) > -1; });
+    return hit && text.trim().split(/\s+/).length < 25;
+  }
+  var LOAD_WORDS = ["overwhelm","workload","too much","stretched","capacity","burn","behind","swamped","no time","juggling","spread thin"];
+  var CLARITY_WORDS = ["unclear","not clear","confus","don't know what","dont know what","priorit","expectation","conflicting"];
+  function matches(text, words){
+    var t = (text||"").toLowerCase();
+    return words.some(function(w){ return t.indexOf(w) > -1; });
+  }
+
+  /* =====================================================================
+     CHECK-IN
+     ===================================================================== */
+  var EMP_Q = [
+    { id:"proud",   q:"What are you most proud of since your last check-in?" },
+    { id:"going",   q:"What's going well right now?" },
+    { id:"blocked", q:"What's getting in your way?" },
+    { id:"support", q:"Where do you need more support?" },
+    { id:"next",    q:"What would you like to accomplish next?" },
+    { id:"discuss", q:"Anything you want to make sure you discuss with your manager?" }
+  ];
+  var MGR_Q = [
+    { id:"well",     q:"What is this person doing particularly well?" },
+    { id:"impact",   q:"What impact are they having?" },
+    { id:"continue", q:"What should they keep doing?" },
+    { id:"improve",  q:"Where could they improve?" },
+    { id:"examples", q:"What specific examples support that?" },
+    { id:"support",  q:"What support can you provide?" },
+    { id:"clear",    q:"Are expectations clear? What might not be landing?" },
+    { id:"skills",   q:"What skills could they build next?" },
+    { id:"stretch",  q:"Is there a stretch assignment that would grow them?" }
+  ];
+
+  /* adaptive follow-ups keyed to the answer of a given question */
+  function followUps(qid, answer){
+    var out = [];
+    if((qid === "blocked" || qid === "support") && matches(answer, LOAD_WORDS)){
+      out.push({ id:qid+"_load1", q:"Which responsibilities are taking the most time?" });
+      out.push({ id:qid+"_load2", q:"What would help most: reprioritizing, more support, clearer expectations, or something else?" });
+    }
+    if((qid === "blocked" || qid === "going" || qid === "discuss") && matches(answer, CLARITY_WORDS)){
+      out.push({ id:qid+"_clar", q:"What would clearer expectations actually look like here?" });
+    }
+    if(qid === "improve" && isVague(answer)){
+      out.push({ id:"improve_ex", q:"Can you give a specific example &mdash; what happened, and when?",
+        coach:"That reads as a judgement rather than something observable. A specific example makes it coachable instead of personal." });
+    }
+    if(qid === "stretch" && answer && answer.toLowerCase().indexOf("no") === 0 && answer.length < 20){
+      out.push({ id:"stretch_why", q:"What would need to change for a stretch opportunity to make sense?" });
+    }
+    return out;
+  }
+
+  var checkinDraft = null;
+
+  function startCheckin(){
+    checkinDraft = { role:data.role, answers:{}, queue:(isMgr() ? MGR_Q : EMP_Q).slice(), step:0, asked:[] };
+    render();
+  }
+
+  function renderCheckin(){
+    var area = document.getElementById("checkinArea");
+    var titleEl = document.getElementById("checkinTitle");
+    var noteEl = document.getElementById("checkinNote");
+
+    titleEl.textContent = isMgr() ? "Your prep for this conversation" : "Your check-in";
+    noteEl.textContent = isMgr()
+      ? "A few questions to get you to specific, observable feedback before you sit down."
+      : "A short conversation instead of a long form. It adapts to what you say.";
+
+    /* completed check-in for this role, not yet filed into a meeting */
+    var mine = data.checkins.filter(function(c){ return c.role === data.role && !c.meetingId; });
+    var latest = mine[mine.length - 1];
+
+    if(!checkinDraft && latest){
+      area.innerHTML =
+        "<div class='card' style='box-shadow:none;margin:0;border-radius:12px;background:var(--card-2);'>" +
+        latest.asked.map(function(a){
+          return "<div class='qa" + (a.followup ? " followup" : "") + "'>" +
+            "<div class='q'>" + a.q + "</div><div class='a'>" + (a.answer ? nl2br(a.answer) : "<em style='color:var(--faint)'>Skipped</em>") + "</div></div>";
+        }).join("") +
+        "</div>" +
+        "<div class='btn-row' style='margin-top:12px;'>" +
+        "<button class='btn secondary sm' id='redoCheckin'>Start a new check-in</button>" +
+        "<button class='btn ghost sm' id='checkinToTopic'>Add something from this to the agenda</button>" +
+        "</div>";
+      document.getElementById("redoCheckin").onclick = startCheckin;
+      document.getElementById("checkinToTopic").onclick = function(){ showSub("oneOnOne","prepare"); openTopicFromCheckin(latest); };
+      return;
+    }
+
+    if(!checkinDraft){
+      area.innerHTML =
+        "<div class='empty'><div class='big'>Nothing prepared yet</div>" +
+        (isMgr() ? "Six to nine short questions. Two minutes." : "Six short questions. Two minutes.") + "</div>" +
+        "<button class='btn' id='startCheckin'>Start my check-in</button>";
+      document.getElementById("startCheckin").onclick = startCheckin;
+      return;
+    }
+
+    /* in progress */
+    var d = checkinDraft;
+    if(d.step >= d.queue.length){
+      /* finished */
+      data.checkins.push({ id:uid(), role:d.role, asked:d.asked, meetingId:null, at:now() });
+      checkinDraft = null;
+      commit((isMgr() ? "Manager" : "Employee") + " check-in completed by " + me());
+      return;
+    }
+
+    var q = d.queue[d.step];
+    var dots = d.queue.map(function(_,i){
+      return "<div class='dot " + (i < d.step ? "done" : (i === d.step ? "now" : "")) + "'></div>";
+    }).join("");
+
+    area.innerHTML =
+      "<div class='progress-dots'>" + dots + "</div>" +
+      (q.coach ? "<div class='coach'><strong>A nudge</strong>" + q.coach + "</div>" : "") +
+      "<div class='field' style='margin-top:12px;'>" +
+      "<label for='ciAnswer'>" + q.q + "</label>" +
+      "<textarea id='ciAnswer' placeholder='Type as much or as little as you like&hellip;'></textarea></div>" +
+      "<div class='btn-row'>" +
+      "<button class='btn' id='ciNext'>" + (d.step === d.queue.length - 1 ? "Finish" : "Next") + "</button>" +
+      "<button class='btn ghost sm' id='ciSkip'>Skip</button>" +
+      "<span style='font-size:12px;color:var(--faint);'>Question " + (d.step+1) + " of " + d.queue.length + "</span>" +
+      "</div>";
+
+    var ta = document.getElementById("ciAnswer");
+    ta.focus();
+    function advance(answer){
+      d.answers[q.id] = answer;
+      d.asked.push({ id:q.id, q:q.q, answer:answer, followup:!!q.isFollowup });
+      var fu = followUps(q.id, answer);
+      if(fu.length){
+        fu.forEach(function(f){ f.isFollowup = true; });
+        d.queue.splice.apply(d.queue, [d.step+1, 0].concat(fu));
+      }
+      d.step++;
+      renderCheckin();
+    }
+    document.getElementById("ciNext").onclick = function(){ advance(ta.value.trim()); };
+    document.getElementById("ciSkip").onclick = function(){ advance(""); };
+  }
+
+  function openTopicFromCheckin(ci){
+    var opts = ci.asked.filter(function(a){ return a.answer; });
+    if(!opts.length){ alert("Nothing in that check-in to add yet."); return; }
+    openModal("Add to the agenda","Pick something from your check-in to put in front of " + esc(them()) + ".",
+      "<div class='field'><label for='ciPick'>From your check-in</label><select id='ciPick'>" +
+      opts.map(function(a,i){ return "<option value='" + i + "'>" + esc(a.answer.slice(0,70)) + (a.answer.length>70?"…":"") + "</option>"; }).join("") +
+      "</select></div>" +
+      fSelect("ciCat","Category",["Wins","Priorities","Roadblocks","Workload","Feedback","Recognition","Career","Development","Team issues","Questions","Support needed","Other"],"Support needed"),
+      function(){
+        var pick = opts[parseInt(document.getElementById("ciPick").value,10)];
+        data.topics.push({ id:uid(), text:pick.answer, why:"From my check-in: " + pick.q.replace(/<[^>]*>/g,""),
+          cat:mv("ciCat"), by:data.role, byName:me(), status:"open", notes:"", at:now() });
+        closeModal();
+        commit(me() + " added a topic from their check-in");
+      }, "Add topic");
+  }
+
+  /* =====================================================================
+     TOPICS
+     ===================================================================== */
+  var TOPIC_STATES = ["open","Discussed","Action Needed","Follow Up","Parking Lot","Resolved"];
+  function topicBadge(s){
+    var m = { "open":"b-grey","Discussed":"b-cyan","Action Needed":"b-amber","Follow Up":"b-purple","Parking Lot":"b-grey","Resolved":"b-green" };
+    return "<span class='badge " + (m[s]||"b-grey") + "'>" + (s === "open" ? "Not yet discussed" : esc(s)) + "</span>";
+  }
+
+  document.getElementById("addTopicBtn").addEventListener("click", function(){
+    var t = document.getElementById("topicText");
+    var text = t.value.trim();
+    if(!text){ t.focus(); return; }
+    data.topics.push({
+      id:uid(), text:text, why:document.getElementById("topicWhy").value.trim(),
+      cat:document.getElementById("topicCat").value, by:data.role, byName:me(),
+      status:"open", notes:"", at:now()
+    });
+    t.value = ""; document.getElementById("topicWhy").value = "";
+    commit(me() + " added a topic: " + text);
+  });
+
+  function renderTopicList(el, items, opts){
+    if(!items.length){
+      el.innerHTML = "<div class='empty'><div class='big'>" + opts.emptyTitle + "</div>" + opts.emptyBody + "</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + items.map(function(t){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(t.text) + "</div>" +
+        (t.why ? "<div class='item-sub'>" + nl2br(t.why) + "</div>" : "") +
+        (t.notes ? "<div class='item-sub'><strong>Note:</strong> " + nl2br(t.notes) + "</div>" : "") +
+        "<div class='item-meta'><span class='badge b-purple'>" + esc(t.cat) + "</span>" +
+        topicBadge(t.status) +
+        "<span>Added by " + esc(t.byName) + " &middot; " + ago(t.at) + "</span></div>" +
+        "</div><div class='item-actions'>" +
+        (opts.showStatus ?
+          "<select data-tstatus='" + t.id + "' style='width:auto;padding:5px 8px;font-size:12px;'>" +
+          TOPIC_STATES.map(function(s){
+            return "<option value='" + s + "'" + (s === t.status ? " selected" : "") + ">" + (s === "open" ? "Not discussed" : s) + "</option>";
+          }).join("") + "</select>" +
+          "<button class='btn ghost sm' data-tnote='" + t.id + "'>Note</button>" +
+          "<button class='btn secondary sm' data-taction='" + t.id + "'>Action</button>"
+        : "") +
+        "<button class='btn ghost sm' data-tdel='" + t.id + "'>Remove</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+
+  function topicHandlers(el){
+    el.addEventListener("change", function(e){
+      var sel = e.target.closest("[data-tstatus]");
+      if(!sel) return;
+      var t = data.topics.find(function(x){ return x.id === sel.getAttribute("data-tstatus"); });
+      if(t){ t.status = sel.value; commit("Topic marked " + t.status + ": " + t.text); }
+    });
+    el.addEventListener("click", function(e){
+      var del = e.target.closest("[data-tdel]"),
+          note = e.target.closest("[data-tnote]"),
+          act = e.target.closest("[data-taction]");
+      if(del){
+        var i = data.topics.findIndex(function(x){ return x.id === del.getAttribute("data-tdel"); });
+        if(i > -1){ var r = data.topics.splice(i,1)[0]; commit("Topic removed: " + r.text); }
+      }
+      if(note){
+        var t = data.topics.find(function(x){ return x.id === note.getAttribute("data-tnote"); });
+        if(!t) return;
+        openModal("Note on this topic", esc(t.text),
+          fArea("tNote","What came up","What did you actually say and decide?", t.notes),
+          function(){ t.notes = mv("tNote"); closeModal(); commit("Note added to: " + t.text); });
+      }
+      if(act){
+        var t2 = data.topics.find(function(x){ return x.id === act.getAttribute("data-taction"); });
+        if(t2) openActionModal(null, { text:"", related:"Topic: " + t2.text });
+      }
+    });
+  }
+  topicHandlers(document.getElementById("talkTopics"));
+  topicHandlers(document.getElementById("parkingTopics"));
+  topicHandlers(document.getElementById("dashTopics"));
+
+  /* =====================================================================
+     WRAP UP
+     ===================================================================== */
+  document.getElementById("saveWrapBtn").addEventListener("click", function(){
+    var discussed = mv("wrapDiscussed"), agreed = mv("wrapAgreed"),
+        revisit = mv("wrapRevisit"), next = mv("wrapNext");
+    if(!discussed && !agreed){
+      alert("Add at least what you discussed or what you agreed on before closing out.");
+      return;
+    }
+    var closed = data.topics.filter(function(t){ return t.status === "Discussed" || t.status === "Resolved"; });
+    var mid = uid();
+    data.meetings.unshift({
+      id:mid, date:data.next1on1.date || today(), time:data.next1on1.time,
+      discussed:discussed, agreed:agreed, revisit:revisit,
+      topics:closed.map(function(t){ return { text:t.text, cat:t.cat, status:t.status, notes:t.notes }; }),
+      by:me(), at:now()
+    });
+    data.checkins.forEach(function(c){ if(!c.meetingId) c.meetingId = mid; });
+    data.topics = data.topics.filter(function(t){ return t.status !== "Discussed" && t.status !== "Resolved"; });
+    document.getElementById("wrapDiscussed").value = "";
+    document.getElementById("wrapAgreed").value = "";
+    document.getElementById("wrapRevisit").value = "";
+    if(next){ data.next1on1.date = next; }
+    commit("1:1 summary saved by " + me());
+    show("history");
+  });
+  document.getElementById("addActionFromWrap").addEventListener("click", function(){ openActionModal(); });
+
+  /* =====================================================================
+     ACHIEVEMENTS
+     ===================================================================== */
+  var ACH_CATS = ["Business results","Customer impact","Collaboration","Leadership","Problem solving",
+    "Innovation","Operational improvement","Team contribution","Other"];
+
+  document.getElementById("addAchievementBtn").addEventListener("click", function(){
+    openModal("Add an achievement","Something that went well. Write it while it's fresh.",
+      fText("acTitle","What happened","e.g. Led the Northwind migration to a clean cutover") +
+      fSelect("acCat","Category",ACH_CATS,"Business results") +
+      fArea("acImpact","What difference did it make?","Who benefited, and how you could tell.") +
+      fDate("acDate","When", today()),
+      function(){
+        var t = mv("acTitle");
+        if(!t){ document.getElementById("acTitle").focus(); return; }
+        data.achievements.unshift({ id:uid(), title:t, cat:mv("acCat"), impact:mv("acImpact"),
+          date:mv("acDate") || today(), by:data.role, byName:me(), at:now() });
+        closeModal();
+        commit(me() + " logged an achievement: " + t);
+      }, "Add achievement");
+  });
+
+  function renderAchievements(){
+    var el = document.getElementById("achievementsList");
+    if(!data.achievements.length){
+      el.innerHTML = "<div class='empty'><div class='big'>Nothing logged yet</div>Add wins as they happen &mdash; future you will be grateful at review time.</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.achievements.map(function(a){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(a.title) + "</div>" +
+        (a.impact ? "<div class='item-sub'>" + nl2br(a.impact) + "</div>" : "") +
+        "<div class='item-meta'><span class='badge b-green'>" + esc(a.cat) + "</span>" +
+        "<span>" + fmtDate(a.date) + " &middot; logged by " + esc(a.byName) + "</span></div>" +
+        "</div><div class='item-actions'><button class='btn ghost sm' data-achdel='" + a.id + "'>Remove</button></div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("achievementsList").addEventListener("click", function(e){
+    var b = e.target.closest("[data-achdel]");
+    if(!b) return;
+    var i = data.achievements.findIndex(function(x){ return x.id === b.getAttribute("data-achdel"); });
+    if(i > -1){ var r = data.achievements.splice(i,1)[0]; commit("Achievement removed: " + r.title); }
+  });
+
+  /* =====================================================================
+     FEEDBACK
+     ===================================================================== */
+  var MGR_FB = ["Recognition","Coaching","Performance feedback","Expectations","Development feedback"];
+  var EMP_FB = ["What's working","What could improve","Support I need","What would help me succeed"];
+
+  document.getElementById("addFeedbackBtn").addEventListener("click", function(){
+    var types = isMgr() ? MGR_FB : EMP_FB;
+    openModal("Give feedback to " + esc(them()),
+      "Feedback lands better when it's specific and about something observable.",
+      fSelect("fbType","Type",types,types[0]) +
+      fArea("fbText","What you want to say","Say it the way you would out loud.") +
+      fArea("fbExample","A specific example","What happened, and when. This is the part that makes it useful.") +
+      "<div id='fbCoach'></div>",
+      function(){
+        var text = mv("fbText");
+        if(!text){ document.getElementById("fbText").focus(); return; }
+        var example = mv("fbExample");
+        if(isVague(text) && !example){
+          document.getElementById("fbCoach").innerHTML =
+            "<div class='coach'><strong>Before you save</strong>That reads as a judgement rather than something observable. " +
+            "Add one specific example &mdash; what happened and when &mdash; or save anyway if you'd rather talk it through in person.</div>" +
+            "<div class='btn-row' style='margin-top:8px;'><button class='btn ghost sm' id='fbAnyway'>Save it as is</button></div>";
+          document.getElementById("fbExample").focus();
+          document.getElementById("fbAnyway").onclick = saveFb;
+          return;
+        }
+        saveFb();
+        function saveFb(){
+          data.feedback.unshift({ id:uid(), dir:data.role, from:me(), to:them(),
+            type:mv("fbType"), text:text, example:mv("fbExample"), at:now() });
+          closeModal();
+          commit(me() + " gave feedback to " + them());
+        }
+      }, "Send feedback");
+  });
+
+  function renderFeedback(){
+    document.getElementById("feedbackNote").textContent = isMgr()
+      ? "Feedback runs both ways here. What you write is visible to " + data.people.employee + " straight away."
+      : "You can give your manager feedback too. What you write is visible to " + data.people.manager + " straight away.";
+    var el = document.getElementById("feedbackList");
+    if(!data.feedback.length){
+      el.innerHTML = "<div class='empty'><div class='big'>No feedback yet</div>Both of you can start this &mdash; recognition counts as feedback too.</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.feedback.map(function(f){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + nl2br(f.text) + "</div>" +
+        (f.example ? "<div class='item-sub'><strong>For example:</strong> " + nl2br(f.example) + "</div>" : "") +
+        "<div class='item-meta'><span class='badge " + (f.dir === "manager" ? "b-pink" : "b-cyan") + "'>" + esc(f.type) + "</span>" +
+        "<span>" + esc(f.from) + " &rarr; " + esc(f.to) + " &middot; " + ago(f.at) + "</span></div>" +
+        "</div><div class='item-actions'><button class='btn ghost sm' data-fbdel='" + f.id + "'>Remove</button></div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("feedbackList").addEventListener("click", function(e){
+    var b = e.target.closest("[data-fbdel]");
+    if(!b) return;
+    var i = data.feedback.findIndex(function(x){ return x.id === b.getAttribute("data-fbdel"); });
+    if(i > -1){ data.feedback.splice(i,1); commit("Feedback removed"); }
+  });
+
+  /* =====================================================================
+     CONCERNS (manager only)
+     ===================================================================== */
+  document.getElementById("addConcernBtn").addEventListener("click", function(){
+    openModal("Document a concern",
+      "Stick to what happened and when. Describe behaviour, not intent &mdash; and skip conclusions about why.",
+      fArea("cnWhat","What happened?","The project was due August 5. It was submitted August 9 with no advance notice about the delay.") +
+      fDate("cnWhen","When did it happen?", today()) +
+      fArea("cnExpect","What expectation wasn't met?","The expectation as it was set.") +
+      fSelect("cnComm","Was that expectation communicated?",["Yes, in writing","Yes, verbally","Partly","No","Not sure"],"Yes, verbally") +
+      fSelect("cnPrev","Has this been discussed before?",["No, this is the first time","Yes, once","Yes, more than once"],"No, this is the first time") +
+      fArea("cnSupport","What support has been provided so far?","Training, coaching, tools, cover, anything.") +
+      fArea("cnOutcome","What outcome are you looking for?","What good looks like from here.") +
+      "<div id='cnCoach'></div>",
+      function(){
+        var what = mv("cnWhat");
+        if(!what){ document.getElementById("cnWhat").focus(); return; }
+        if(isVague(what)){
+          document.getElementById("cnCoach").innerHTML =
+            "<div class='coach'><strong>Try rewriting this</strong>" +
+            "This describes intent or character rather than behaviour. Swap &ldquo;they don't care about deadlines&rdquo; for " +
+            "&ldquo;the project was due August 5; it was submitted August 9 without advance notice.&rdquo;</div>" +
+            "<div class='btn-row' style='margin-top:8px;'><button class='btn ghost sm' id='cnAnyway'>Save as written</button></div>";
+          document.getElementById("cnWhat").focus();
+          document.getElementById("cnAnyway").onclick = saveCn;
+          return;
+        }
+        saveCn();
+        function saveCn(){
+          data.concerns.unshift({ id:uid(), what:what, when:mv("cnWhen"), expectation:mv("cnExpect"),
+            communicated:mv("cnComm"), previously:mv("cnPrev"), support:mv("cnSupport"),
+            outcome:mv("cnOutcome"), by:me(), at:now() });
+          closeModal();
+          commit("A concern was documented");
+        }
+      }, "Save note");
+  });
+
+  function renderConcerns(){
+    var el = document.getElementById("concernsList");
+    if(!data.concerns.length){
+      el.innerHTML = "<div class='empty'><div class='big'>Nothing documented</div>Notes here stay between you and " + esc(data.people.employee) + ".</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.concerns.map(function(c){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + nl2br(c.what) + "</div>" +
+        "<dl class='kv'>" +
+        (c.when ? "<dt>When</dt><dd>" + fmtDate(c.when) + "</dd>" : "") +
+        (c.expectation ? "<dt>Expectation</dt><dd>" + nl2br(c.expectation) + "</dd>" : "") +
+        (c.communicated ? "<dt>Communicated</dt><dd>" + esc(c.communicated) + "</dd>" : "") +
+        (c.previously ? "<dt>Discussed before</dt><dd>" + esc(c.previously) + "</dd>" : "") +
+        (c.support ? "<dt>Support given</dt><dd>" + nl2br(c.support) + "</dd>" : "") +
+        (c.outcome ? "<dt>Outcome sought</dt><dd>" + nl2br(c.outcome) + "</dd>" : "") +
+        "</dl>" +
+        "<div class='item-meta'><span>Noted by " + esc(c.by) + " &middot; " + ago(c.at) + "</span></div>" +
+        "</div><div class='item-actions'><button class='btn ghost sm' data-cndel='" + c.id + "'>Remove</button></div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("concernsList").addEventListener("click", function(e){
+    var b = e.target.closest("[data-cndel]");
+    if(!b) return;
+    var i = data.concerns.findIndex(function(x){ return x.id === b.getAttribute("data-cndel"); });
+    if(i > -1){ data.concerns.splice(i,1); commit("A documented concern was removed"); }
+  });
+
+  /* =====================================================================
+     GOALS
+     ===================================================================== */
+  var GOAL_STATES = ["Not Started","In Progress","At Risk","Complete","Deferred"];
+  function goalBadge(s){
+    var m = { "Not Started":"b-grey","In Progress":"b-cyan","At Risk":"b-amber","Complete":"b-green","Deferred":"b-grey" };
+    return "<span class='badge " + (m[s]||"b-grey") + "'>" + esc(s) + "</span>";
+  }
+
+  function openGoalModal(existing){
+    var g = existing || {};
+    openModal(existing ? "Edit goal" : "Add a goal",
+      "Goals work best when you both can tell whether they happened.",
+      fText("glText","The goal", "e.g. Cut onboarding time for new customers to under 10 days", g.text) +
+      fArea("glWhy","Why it matters","What changes if this lands.", g.why) +
+      fArea("glMeasure","How we'll know it worked","The success measure. Be concrete.", g.measure) +
+      "<div class='row'>" +
+      fSelect("glOwner","Owner",[data.people.employee, data.people.manager, "Both of us"], g.owner || data.people.employee) +
+      fDate("glTarget","Target date", g.target) +
+      "</div>" +
+      fSelect("glStatus","Status",GOAL_STATES, g.status || "Not Started") +
+      "<div class='field'><label for='glProgress'>Progress: <span id='glPct'>" + (g.progress||0) + "</span>%</label>" +
+      "<input type='range' id='glProgress' min='0' max='100' step='5' value='" + (g.progress||0) + "'></div>" +
+      fArea("glObstacles","What's in the way?","Blockers, dependencies, anything slowing this down.", g.obstacles) +
+      fArea("glSupport","What support is needed from " + esc(data.people.manager) + "?","Be specific about the ask.", g.support),
+      function(){
+        var text = mv("glText");
+        if(!text){ document.getElementById("glText").focus(); return; }
+        var payload = {
+          text:text, why:mv("glWhy"), measure:mv("glMeasure"), owner:mv("glOwner"),
+          target:mv("glTarget"), status:mv("glStatus"),
+          progress:parseInt(document.getElementById("glProgress").value,10),
+          obstacles:mv("glObstacles"), support:mv("glSupport"), updated:now()
+        };
+        if(existing){
+          Object.assign(existing, payload);
+          closeModal();
+          commit(me() + " updated the goal: " + text);
+        } else {
+          payload.id = uid(); payload.at = now(); payload.byName = me();
+          data.goals.unshift(payload);
+          closeModal();
+          commit(me() + " added a goal: " + text);
+        }
+      }, existing ? "Save changes" : "Add goal");
+
+    var range = document.getElementById("glProgress");
+    range.addEventListener("input", function(){
+      document.getElementById("glPct").textContent = range.value;
+    });
+  }
+  document.getElementById("addGoalBtn").addEventListener("click", function(){ openGoalModal(null); });
+
+  function staleGoal(g){
+    if(g.status === "Complete" || g.status === "Deferred") return false;
+    var last = new Date(g.updated || g.at).getTime();
+    return daysBetween(last, Date.now()) >= 21;
+  }
+
+  function renderGoals(){
+    var el = document.getElementById("goalsList");
+    if(!data.goals.length){
+      el.innerHTML = "<div class='empty'><div class='big'>No goals yet</div>Add one together &mdash; goals set with your manager tend to stick.</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.goals.map(function(g){
+      var stale = staleGoal(g);
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(g.text) + "</div>" +
+        (g.why ? "<div class='item-sub'><strong>Why:</strong> " + nl2br(g.why) + "</div>" : "") +
+        (g.measure ? "<div class='item-sub'><strong>Success looks like:</strong> " + nl2br(g.measure) + "</div>" : "") +
+        (g.obstacles ? "<div class='item-sub'><strong>In the way:</strong> " + nl2br(g.obstacles) + "</div>" : "") +
+        (g.support ? "<div class='item-sub'><strong>Support needed:</strong> " + nl2br(g.support) + "</div>" : "") +
+        "<div class='bar'><span style='width:" + (g.progress||0) + "%'></span></div>" +
+        "<div class='item-meta'>" + goalBadge(g.status) +
+        "<span>" + (g.progress||0) + "% &middot; " + esc(g.owner || data.people.employee) +
+        (g.target ? " &middot; target " + fmtDate(g.target) : "") +
+        " &middot; updated " + ago(g.updated || g.at) + "</span></div>" +
+        (stale ? "<div class='nudge'><span>No update in three weeks. Want to talk about it at your next 1:1?</span>" +
+          "<button class='btn ghost sm' data-gltopic='" + g.id + "'>Add to agenda</button></div>" : "") +
+        "</div><div class='item-actions'>" +
+        "<button class='btn secondary sm' data-gledit='" + g.id + "'>Update</button>" +
+        "<button class='btn ghost sm' data-gldel='" + g.id + "'>Remove</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("goalsList").addEventListener("click", function(e){
+    var ed = e.target.closest("[data-gledit]"), dl = e.target.closest("[data-gldel]"), tp = e.target.closest("[data-gltopic]");
+    if(ed){
+      var g = data.goals.find(function(x){ return x.id === ed.getAttribute("data-gledit"); });
+      if(g) openGoalModal(g);
+    }
+    if(dl){
+      var i = data.goals.findIndex(function(x){ return x.id === dl.getAttribute("data-gldel"); });
+      if(i > -1){ var r = data.goals.splice(i,1)[0]; commit("Goal removed: " + r.text); }
+    }
+    if(tp){
+      var g2 = data.goals.find(function(x){ return x.id === tp.getAttribute("data-gltopic"); });
+      if(g2){
+        data.topics.push({ id:uid(), text:"Progress on: " + g2.text, why:"This goal hasn't been updated in a few weeks.",
+          cat:"Priorities", by:data.role, byName:me(), status:"open", notes:"", at:now() });
+        commit(me() + " added a goal check-in to the agenda");
+      }
+    }
+  });
+
+  /* =====================================================================
+     DEVELOPMENT
+     ===================================================================== */
+  var DEV_TYPES = ["Course","Training","Coaching","Mentoring","Job shadowing","Stretch assignment",
+    "New project","Conference","Certification","Reading / resource","Peer learning",
+    "Leadership exposure","Cross-functional experience"];
+  var DEV_STATES = ["Not Started","In Progress","Complete","Deferred"];
+
+  function openDevModal(existing, seed){
+    var d = existing || seed || {};
+    openModal(existing ? "Edit development plan" : (isMgr() ? "Recommend development" : "Request development"),
+      isMgr() ? "A good recommendation says what to build, how, and what you'll do to help."
+              : "Ask for what would help you grow. Your manager sees this straight away.",
+      fText("dvArea","Development area","e.g. Executive presentation skills", d.area) +
+      fArea("dvWhy","Why it matters","e.g. Increase effectiveness presenting to senior stakeholders", d.why) +
+      fSelect("dvType","Type",DEV_TYPES, d.type || "Stretch assignment") +
+      fArea("dvActivity","The activity","e.g. Present the monthly business update", d.activity) +
+      fArea("dvSupport","What " + esc(data.people.manager) + " will do to support this","e.g. Review the first two decks and give feedback", d.support) +
+      "<div class='row'>" + fDate("dvTarget","Target date", d.target) +
+      fSelect("dvStatus","Status",DEV_STATES, d.status || "Not Started") + "</div>" +
+      fArea("dvMeasure","How we'll know it worked","e.g. Confidently leads the quarterly leadership presentation", d.measure),
+      function(){
+        var area = mv("dvArea");
+        if(!area){ document.getElementById("dvArea").focus(); return; }
+        var payload = { area:area, why:mv("dvWhy"), type:mv("dvType"), activity:mv("dvActivity"),
+          support:mv("dvSupport"), target:mv("dvTarget"), status:mv("dvStatus"),
+          measure:mv("dvMeasure"), updated:now() };
+        if(existing){
+          Object.assign(existing, payload);
+          closeModal();
+          commit(me() + " updated a development plan: " + area);
+        } else {
+          payload.id = uid(); payload.at = now(); payload.by = data.role; payload.byName = me();
+          data.development.unshift(payload);
+          closeModal();
+          commit(me() + (isMgr() ? " recommended development: " : " requested development: ") + area);
+        }
+      }, existing ? "Save changes" : "Save plan");
+  }
+  document.getElementById("addDevBtn").addEventListener("click", function(){ openDevModal(null); });
+
+  function renderDev(){
+    var el = document.getElementById("devList");
+    if(!data.development.length){
+      el.innerHTML = "<div class='empty'><div class='big'>No development plans yet</div>" +
+        (isMgr() ? "Recommend something that stretches " + esc(data.people.employee) + " a little." : "Ask for what would help you grow.") + "</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.development.map(function(d){
+      var stateClass = { "Not Started":"b-grey","In Progress":"b-cyan","Complete":"b-green","Deferred":"b-grey" }[d.status] || "b-grey";
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(d.area) + "</div>" +
+        (d.why ? "<div class='item-sub'><strong>Why:</strong> " + nl2br(d.why) + "</div>" : "") +
+        (d.activity ? "<div class='item-sub'><strong>Activity:</strong> " + nl2br(d.activity) + "</div>" : "") +
+        (d.support ? "<div class='item-sub'><strong>Manager support:</strong> " + nl2br(d.support) + "</div>" : "") +
+        (d.measure ? "<div class='item-sub'><strong>Success measure:</strong> " + nl2br(d.measure) + "</div>" : "") +
+        "<div class='item-meta'><span class='badge b-purple'>" + esc(d.type) + "</span>" +
+        "<span class='badge " + stateClass + "'>" + esc(d.status) + "</span>" +
+        "<span>" + (d.by === "manager" ? "Recommended by " : "Requested by ") + esc(d.byName) +
+        (d.target ? " &middot; target " + fmtDate(d.target) : "") + "</span></div>" +
+        "</div><div class='item-actions'>" +
+        "<button class='btn secondary sm' data-dvedit='" + d.id + "'>Update</button>" +
+        "<button class='btn ghost sm' data-dvdel='" + d.id + "'>Remove</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("devList").addEventListener("click", function(e){
+    var ed = e.target.closest("[data-dvedit]"), dl = e.target.closest("[data-dvdel]");
+    if(ed){
+      var d = data.development.find(function(x){ return x.id === ed.getAttribute("data-dvedit"); });
+      if(d) openDevModal(d);
+    }
+    if(dl){
+      var i = data.development.findIndex(function(x){ return x.id === dl.getAttribute("data-dvdel"); });
+      if(i > -1){ var r = data.development.splice(i,1)[0]; commit("Development plan removed: " + r.area); }
+    }
+  });
+
+  /* =====================================================================
+     CAREER
+     ===================================================================== */
+  var EMP_CAREER = [
+    "Where would you like your career to go?",
+    "What kind of work genuinely interests you?",
+    "What skills would you like to build?",
+    "What experience would help you move toward your next role?",
+    "Are you interested in managing people?"
+  ];
+  var MGR_CAREER = [
+    "What strengths do you see in " + "{emp}" + "?",
+    "What capabilities should they develop?",
+    "What experiences could help them grow?",
+    "What responsibilities could they take on next?"
+  ];
+
+  function careerPrompts(){
+    return (isMgr() ? MGR_CAREER : EMP_CAREER).map(function(q){
+      return q.replace("{emp}", data.people.employee);
+    });
+  }
+
+  function renderCareer(){
+    document.getElementById("careerPromptTitle").textContent = isMgr()
+      ? "How you see " + data.people.employee + " growing"
+      : "Where you want to go";
+    document.getElementById("careerPromptNote").textContent = isMgr()
+      ? "Answer what you can. Nothing here is a promise of promotion — it's how you'd help them get there."
+      : "Answer what you can. Your manager sees these, and you can turn any of it into a development plan.";
+
+    var el = document.getElementById("careerPrompts");
+    el.innerHTML = careerPrompts().map(function(q,i){
+      var existing = data.career.find(function(c){ return c.role === data.role && c.q === q; });
+      return "<div class='field'><label for='cr" + i + "'>" + esc(q) + "</label>" +
+        "<textarea id='cr" + i + "' data-crq='" + esc(q) + "' placeholder='Say as much or as little as you like&hellip;'>" +
+        esc(existing ? existing.a : "") + "</textarea></div>";
+    }).join("") + "<button class='btn' id='saveCareerBtn'>Save my answers</button>";
+
+    document.getElementById("saveCareerBtn").onclick = function(){
+      var saved = 0;
+      el.querySelectorAll("[data-crq]").forEach(function(ta){
+        var q = ta.getAttribute("data-crq"), a = ta.value.trim();
+        var ex = data.career.find(function(c){ return c.role === data.role && c.q === q; });
+        if(a){
+          if(ex){ if(ex.a !== a){ ex.a = a; ex.at = now(); saved++; } }
+          else { data.career.push({ id:uid(), role:data.role, byName:me(), q:q, a:a, at:now() }); saved++; }
+        } else if(ex){
+          data.career.splice(data.career.indexOf(ex),1);
+        }
+      });
+      commit(saved ? me() + " updated their career conversation" : null);
+    };
+
+    var list = document.getElementById("careerList");
+    if(!data.career.length){
+      list.innerHTML = "<div class='empty'><div class='big'>Nothing here yet</div>Answer a few prompts above to start the conversation.</div>";
+      return;
+    }
+    list.innerHTML = "<ul class='list'>" + data.career.slice().sort(function(a,b){
+      return new Date(b.at) - new Date(a.at);
+    }).map(function(c){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(c.q) + "</div>" +
+        "<div class='item-sub'>" + nl2br(c.a) + "</div>" +
+        "<div class='item-meta'><span class='badge " + (c.role === "manager" ? "b-pink" : "b-cyan") + "'>" +
+        esc(c.byName) + "</span><span>" + ago(c.at) + "</span></div>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("careerToDevBtn").addEventListener("click", function(){
+    var mine = data.career.filter(function(c){ return c.role === data.role; });
+    var seed = {};
+    var skills = mine.find(function(c){ return /skills/i.test(c.q); });
+    var exp = mine.find(function(c){ return /experience|responsibilit/i.test(c.q); });
+    if(skills) seed.area = skills.a.slice(0,80);
+    if(exp) seed.activity = exp.a;
+    seed.why = "Came out of a career conversation.";
+    openDevModal(null, seed);
+  });
+
+  /* =====================================================================
+     ACTIONS
+     ===================================================================== */
+  var ACTION_STATES = ["Open","In Progress","Blocked","Done"];
+  var actionFilter = "open";
+
+  function openActionModal(existing, seed){
+    var a = existing || seed || {};
+    openModal(existing ? "Edit action" : "Add an action",
+      "Something one of you agreed to do, with a name and a date on it.",
+      fText("acText","What needs to happen","e.g. Draft the rollout timeline", a.text) +
+      "<div class='row'>" +
+      fSelect("acOwner","Owner",[data.people.employee, data.people.manager, "Both of us"], a.owner || me()) +
+      fDate("acDue","Due", a.due) + "</div>" +
+      fSelect("acStatus","Status",ACTION_STATES, a.status || "Open") +
+      fText("acRelated","Related to","A goal, topic or conversation (optional)", a.related) +
+      fArea("acNotes","Notes","Anything that would help whoever picks this up.", a.notes),
+      function(){
+        var text = mv("acText");
+        if(!text){ document.getElementById("acText").focus(); return; }
+        var payload = { text:text, owner:mv("acOwner"), due:mv("acDue"), status:mv("acStatus"),
+          related:mv("acRelated"), notes:mv("acNotes"), updated:now() };
+        if(existing){
+          Object.assign(existing, payload);
+          closeModal();
+          commit("Action updated: " + text);
+        } else {
+          payload.id = uid(); payload.at = now(); payload.byName = me();
+          data.actions.unshift(payload);
+          closeModal();
+          commit(me() + " added an action: " + text);
+        }
+      }, existing ? "Save changes" : "Add action");
+  }
+  document.getElementById("addActionBtn").addEventListener("click", function(){ openActionModal(null); });
+
+  function isOverdue(a){
+    return a.status !== "Done" && a.due && a.due < today();
+  }
+  function actionBadge(a){
+    if(a.status === "Done") return "<span class='badge b-green'>Done</span>";
+    if(isOverdue(a)) return "<span class='badge b-red'>Past due</span>";
+    if(a.status === "Blocked") return "<span class='badge b-amber'>Blocked</span>";
+    if(a.status === "In Progress") return "<span class='badge b-cyan'>In progress</span>";
+    return "<span class='badge b-grey'>Open</span>";
+  }
+
+  document.getElementById("actionFilters").addEventListener("click", function(e){
+    var c = e.target.closest("[data-afilter]");
+    if(!c) return;
+    actionFilter = c.getAttribute("data-afilter");
+    render();
+  });
+
+  function filteredActions(){
+    return data.actions.filter(function(a){
+      if(actionFilter === "all") return true;
+      if(actionFilter === "done") return a.status === "Done";
+      if(actionFilter === "overdue") return isOverdue(a);
+      if(actionFilter === "mine") return a.status !== "Done" && (a.owner === me() || a.owner === "Both of us");
+      return a.status !== "Done";
+    });
+  }
+
+  function actionListHtml(items, emptyTitle, emptyBody){
+    if(!items.length){
+      return "<div class='empty'><div class='big'>" + emptyTitle + "</div>" + emptyBody + "</div>";
+    }
+    return "<ul class='list'>" + items.map(function(a){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text" + (a.status === "Done" ? " done-text" : "") + "'>" + esc(a.text) + "</div>" +
+        (a.notes ? "<div class='item-sub'>" + nl2br(a.notes) + "</div>" : "") +
+        (a.related ? "<div class='item-sub' style='color:var(--faint);'>" + esc(a.related) + "</div>" : "") +
+        "<div class='item-meta'>" + actionBadge(a) +
+        "<span>" + esc(a.owner) + (a.due ? " &middot; due " + fmtDate(a.due) : " &middot; no date") + "</span></div>" +
+        "</div><div class='item-actions'>" +
+        "<button class='btn " + (a.status === "Done" ? "ghost" : "secondary") + " sm' data-actoggle='" + a.id + "'>" +
+        (a.status === "Done" ? "Reopen" : "Done") + "</button>" +
+        "<button class='btn ghost sm' data-acedit='" + a.id + "'>Edit</button>" +
+        "<button class='btn ghost sm' data-acdel='" + a.id + "'>Remove</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+
+  function wireActionList(el){
+    el.addEventListener("click", function(e){
+      var tg = e.target.closest("[data-actoggle]"),
+          ed = e.target.closest("[data-acedit]"),
+          dl = e.target.closest("[data-acdel]");
+      if(tg){
+        var a = data.actions.find(function(x){ return x.id === tg.getAttribute("data-actoggle"); });
+        if(a){
+          a.status = a.status === "Done" ? "Open" : "Done";
+          a.updated = now();
+          commit("Action " + (a.status === "Done" ? "completed" : "reopened") + ": " + a.text);
+        }
+      }
+      if(ed){
+        var a2 = data.actions.find(function(x){ return x.id === ed.getAttribute("data-acedit"); });
+        if(a2) openActionModal(a2);
+      }
+      if(dl){
+        var i = data.actions.findIndex(function(x){ return x.id === dl.getAttribute("data-acdel"); });
+        if(i > -1){ var r = data.actions.splice(i,1)[0]; commit("Action removed: " + r.text); }
+      }
+    });
+  }
+  wireActionList(document.getElementById("actionsList"));
+  wireActionList(document.getElementById("dashActions"));
+  wireActionList(document.getElementById("wrapActions"));
+
+  /* =====================================================================
+     HISTORY (derived)
+     ===================================================================== */
+  var histFilter = "all", histQuery = "";
+
+  function historyEntries(){
+    var out = [];
+    data.meetings.forEach(function(m){
+      out.push({ cat:"1:1", at:m.at, title:"1:1 conversation — " + fmtDate(m.date),
+        body:[m.discussed && "Discussed: " + m.discussed, m.agreed && "Agreed: " + m.agreed,
+              m.revisit && "To revisit: " + m.revisit].filter(Boolean).join("\n"),
+        who:m.by });
+    });
+    data.checkins.forEach(function(c){
+      out.push({ cat:"1:1", at:c.at, title:(c.role === "manager" ? "Manager" : "Employee") + " check-in",
+        body:c.asked.filter(function(a){ return a.answer; })
+          .map(function(a){ return a.q.replace(/<[^>]*>/g,"") + " — " + a.answer; }).join("\n"),
+        who:c.role === "manager" ? data.people.manager : data.people.employee });
+    });
+    data.achievements.forEach(function(a){
+      out.push({ cat:"Performance", at:a.at, title:"Achievement: " + a.title, body:a.impact, who:a.byName });
+    });
+    data.feedback.forEach(function(f){
+      out.push({ cat:"Feedback", at:f.at, title:f.type + " — " + f.from + " to " + f.to,
+        body:[f.text, f.example && "For example: " + f.example].filter(Boolean).join("\n"), who:f.from });
+    });
+    data.concerns.forEach(function(c){
+      out.push({ cat:"Performance", at:c.at, title:"Documented concern", body:c.what, who:c.by });
+    });
+    data.goals.forEach(function(g){
+      out.push({ cat:"Goals", at:g.at, title:"Goal: " + g.text,
+        body:[g.why, g.measure && "Success measure: " + g.measure, "Status: " + g.status + " (" + (g.progress||0) + "%)"].filter(Boolean).join("\n"),
+        who:g.byName });
+    });
+    data.development.forEach(function(d){
+      out.push({ cat:"Development", at:d.at, title:"Development: " + d.area,
+        body:[d.activity, d.support && "Support: " + d.support].filter(Boolean).join("\n"), who:d.byName });
+    });
+    data.career.forEach(function(c){
+      out.push({ cat:"Career", at:c.at, title:"Career: " + c.q, body:c.a, who:c.byName });
+    });
+    data.actions.forEach(function(a){
+      out.push({ cat:"Actions", at:a.at, title:"Action: " + a.text,
+        body:[a.owner && "Owner: " + a.owner, a.due && "Due: " + a.due, "Status: " + a.status].filter(Boolean).join("\n"),
+        who:a.byName });
+    });
+    return out.sort(function(a,b){ return new Date(b.at) - new Date(a.at); });
+  }
+
+  document.getElementById("historyFilters").addEventListener("click", function(e){
+    var c = e.target.closest("[data-hfilter]");
+    if(!c) return;
+    histFilter = c.getAttribute("data-hfilter");
+    render();
+  });
+  document.getElementById("historySearch").addEventListener("input", function(e){
+    histQuery = e.target.value.toLowerCase();
+    renderHistory();
+  });
+
+  function renderHistory(){
+    document.querySelectorAll("#historyFilters .chip").forEach(function(c){
+      c.classList.toggle("active", c.getAttribute("data-hfilter") === histFilter);
+    });
+    var items = historyEntries().filter(function(h){
+      if(histFilter !== "all" && h.cat !== histFilter) return false;
+      if(histQuery){
+        return (h.title + " " + (h.body||"") + " " + (h.who||"")).toLowerCase().indexOf(histQuery) > -1;
+      }
+      return true;
+    });
+    var el = document.getElementById("historyList");
+    if(!items.length){
+      el.innerHTML = "<div class='empty'><div class='big'>" +
+        (histQuery || histFilter !== "all" ? "Nothing matches that" : "No history yet") + "</div>" +
+        (histQuery || histFilter !== "all" ? "Try a different filter or search." : "Everything you both do shows up here in order.") + "</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list timeline'>" + items.map(function(h){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'>" + esc(h.title) + "</div>" +
+        (h.body ? "<div class='item-sub'>" + nl2br(h.body) + "</div>" : "") +
+        "<div class='item-meta'><span class='badge b-purple'>" + esc(h.cat) + "</span>" +
+        "<span>" + esc(h.who || "") + " &middot; " + ago(h.at) + "</span></div>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+
+  /* =====================================================================
+     REVIEW PREP
+     ===================================================================== */
+  document.getElementById("buildReviewBtn").addEventListener("click", function(){
+    var L = [];
+    var who = isMgr() ? data.people.employee : "I";
+    L.push(isMgr() ? "REVIEW PREPARATION — " + data.people.employee : "MY REVIEW PREPARATION");
+    L.push("Prepared by " + me() + " on " + new Date().toLocaleDateString());
+    L.push("This is a draft for discussion. It is not a rating and has not been shared with anyone.");
+    L.push("");
+
+    L.push("MAJOR ACCOMPLISHMENTS");
+    if(data.achievements.length){
+      data.achievements.forEach(function(a){
+        L.push("• " + a.title + " (" + a.cat + ", " + (a.date || "") + ")");
+        if(a.impact) L.push("   Impact: " + a.impact);
+      });
+    } else L.push("• Nothing logged yet.");
+    L.push("");
+
+    var done = data.goals.filter(function(g){ return g.status === "Complete"; });
+    var open = data.goals.filter(function(g){ return g.status !== "Complete" && g.status !== "Deferred"; });
+    L.push("GOALS COMPLETED");
+    if(done.length) done.forEach(function(g){ L.push("• " + g.text + (g.measure ? " — " + g.measure : "")); });
+    else L.push("• None marked complete yet.");
+    L.push("");
+    L.push("GOALS STILL IN PROGRESS");
+    if(open.length) open.forEach(function(g){
+      L.push("• " + g.text + " — " + g.status + ", " + (g.progress||0) + "%");
+      if(g.obstacles) L.push("   In the way: " + g.obstacles);
+    });
+    else L.push("• None open.");
+    L.push("");
+
+    L.push("FEEDBACK " + (isMgr() ? "GIVEN AND RECEIVED" : "RECEIVED"));
+    if(data.feedback.length){
+      data.feedback.forEach(function(f){
+        L.push("• [" + f.type + "] " + f.from + " to " + f.to + ": " + f.text);
+        if(f.example) L.push("   Example: " + f.example);
+      });
+    } else L.push("• None recorded.");
+    L.push("");
+
+    L.push("DEVELOPMENT");
+    if(data.development.length){
+      data.development.forEach(function(d){
+        L.push("• " + d.area + " (" + d.type + ") — " + d.status);
+        if(d.activity) L.push("   Activity: " + d.activity);
+        if(d.measure) L.push("   Success measure: " + d.measure);
+      });
+    } else L.push("• Nothing in flight.");
+    L.push("");
+
+    L.push("CAREER CONVERSATIONS");
+    if(data.career.length){
+      data.career.forEach(function(c){ L.push("• " + c.q + "\n   " + c.a + "  (" + c.byName + ")"); });
+    } else L.push("• None recorded.");
+    L.push("");
+
+    L.push("CHALLENGES AND SUPPORT NEEDED");
+    var obstacles = data.goals.filter(function(g){ return g.obstacles; });
+    if(obstacles.length) obstacles.forEach(function(g){ L.push("• " + g.text + ": " + g.obstacles); });
+    else L.push("• Nothing flagged.");
+    L.push("");
+
+    if(isMgr() && data.concerns.length){
+      L.push("CONCERNS DISCUSSED DURING THE YEAR");
+      data.concerns.forEach(function(c){
+        L.push("• " + (c.when ? c.when + ": " : "") + c.what);
+        if(c.outcome) L.push("   Outcome sought: " + c.outcome);
+      });
+      L.push("");
+    }
+
+    L.push("WHAT'S NEXT");
+    L.push("• [Add the goals and focus areas you want for the next period.]");
+
+    document.getElementById("reviewDraft").value = L.join("\n");
+    data.reviewDrafts[data.role] = L.join("\n");
+    commit(me() + " built a review preparation draft");
+    showSub("performance","review");
+  });
+  document.getElementById("saveReviewBtn").addEventListener("click", function(){
+    data.reviewDrafts[data.role] = document.getElementById("reviewDraft").value;
+    commit(me() + " saved their review draft");
+  });
+  document.getElementById("exportReviewBtn").addEventListener("click", function(){
+    var text = document.getElementById("reviewDraft").value;
+    if(!text.trim()){ alert("Build or write a draft first."); return; }
+    confirmExport(function(){
+      downloadWord("review-preparation", "<h1>Review preparation</h1><pre style='font-family:inherit;white-space:pre-wrap;'>" + esc(text) + "</pre>");
+    });
+  });
+
+  /* =====================================================================
+     EXPORT
+     ===================================================================== */
+  function confirmExport(then){
+    openModal("You're about to create a file",
+      "",
+      "<div class='coach' style='margin-top:0;'><strong>Before you download</strong>" +
+      "This file will contain the information you selected. Once it's on your device, you control who sees it. " +
+      "Nothing is sent to HR, your organisation, or anyone else automatically &mdash; sharing it is entirely your decision.</div>",
+      function(){ closeModal(); then(); }, "I understand — create the file");
+  }
+
+  function selectedScopes(){
+    var out = {};
+    document.querySelectorAll("#exportOptions [data-ex]").forEach(function(cb){
+      out[cb.getAttribute("data-ex")] = cb.checked;
+    });
+    return out;
+  }
+
+  function buildExportHtml(){
+    var s = selectedScopes(), H = [];
+    H.push("<h1>Performance Pulse</h1>");
+    H.push("<p><strong>" + esc(data.people.employee) + "</strong> and <strong>" + esc(data.people.manager) + "</strong><br>" +
+      "Exported by " + esc(me()) + " on " + new Date().toLocaleString() + "</p>");
+    H.push("<p style='padding:10px;border:1px solid #ccc;background:#f6f4fc;'><em>This file was created intentionally by " +
+      esc(me()) + ". It was not generated or sent automatically.</em></p>");
+
+    function section(title, body){
+      if(!body) return;
+      H.push("<h2>" + title + "</h2>" + body);
+    }
+    function ul(items){
+      if(!items.length) return "<p><em>Nothing recorded.</em></p>";
+      return "<ul>" + items.map(function(i){ return "<li>" + i + "</li>"; }).join("") + "</ul>";
+    }
+
+    if(s.current1on1){
+      var body = "<p><strong>Scheduled:</strong> " + (data.next1on1.date ? fmtDate(data.next1on1.date) + " " + fmtTime(data.next1on1.time) : "Not scheduled") + "<br>" +
+        "<strong>Focus:</strong> " + esc(data.next1on1.focus || "—") + "</p>";
+      body += ul(data.topics.map(function(t){
+        return "<strong>" + esc(t.text) + "</strong> [" + esc(t.cat) + " — " + esc(t.status === "open" ? "not yet discussed" : t.status) + "]" +
+          (t.why ? "<br>" + esc(t.why) : "") + (t.notes ? "<br><em>Note: " + esc(t.notes) + "</em>" : "") +
+          "<br><small>Added by " + esc(t.byName) + "</small>";
+      }));
+      var pending = data.checkins.filter(function(c){ return !c.meetingId; });
+      if(pending.length){
+        body += "<h3>Check-in preparation</h3>";
+        pending.forEach(function(c){
+          body += "<p><strong>" + (c.role === "manager" ? "Manager" : "Employee") + " check-in</strong></p>" +
+            ul(c.asked.filter(function(a){ return a.answer; }).map(function(a){
+              return "<strong>" + esc(a.q.replace(/<[^>]*>/g,"")) + "</strong><br>" + esc(a.answer);
+            }));
+        });
+      }
+      section("Current 1:1", body);
+    }
+    if(s.past1on1s){
+      section("Past 1:1 summaries", ul(data.meetings.map(function(m){
+        return "<strong>" + fmtDate(m.date) + "</strong>" +
+          (m.discussed ? "<br><strong>Discussed:</strong> " + esc(m.discussed) : "") +
+          (m.agreed ? "<br><strong>Agreed:</strong> " + esc(m.agreed) : "") +
+          (m.revisit ? "<br><strong>To revisit:</strong> " + esc(m.revisit) : "");
+      })));
+    }
+    if(s.goals){
+      section("Goals", ul(data.goals.map(function(g){
+        return "<strong>" + esc(g.text) + "</strong> [" + esc(g.status) + ", " + (g.progress||0) + "%]" +
+          (g.why ? "<br><strong>Why:</strong> " + esc(g.why) : "") +
+          (g.measure ? "<br><strong>Success measure:</strong> " + esc(g.measure) : "") +
+          "<br><strong>Owner:</strong> " + esc(g.owner || data.people.employee) + (g.target ? " &middot; <strong>Target:</strong> " + esc(g.target) : "") +
+          (g.obstacles ? "<br><strong>Obstacles:</strong> " + esc(g.obstacles) : "") +
+          (g.support ? "<br><strong>Support needed:</strong> " + esc(g.support) : "");
+      })));
+    }
+    if(s.development){
+      section("Development plan", ul(data.development.map(function(d){
+        return "<strong>" + esc(d.area) + "</strong> [" + esc(d.type) + " — " + esc(d.status) + "]" +
+          (d.why ? "<br><strong>Why:</strong> " + esc(d.why) : "") +
+          (d.activity ? "<br><strong>Activity:</strong> " + esc(d.activity) : "") +
+          (d.support ? "<br><strong>Manager support:</strong> " + esc(d.support) : "") +
+          (d.measure ? "<br><strong>Success measure:</strong> " + esc(d.measure) : "") +
+          (d.target ? "<br><strong>Target:</strong> " + esc(d.target) : "");
+      })));
+    }
+    if(s.performance){
+      section("Achievements", ul(data.achievements.map(function(a){
+        return "<strong>" + esc(a.title) + "</strong> [" + esc(a.cat) + "]" +
+          (a.impact ? "<br>" + esc(a.impact) : "") + "<br><small>" + esc(a.date) + " — " + esc(a.byName) + "</small>";
+      })));
+      section("Feedback", ul(data.feedback.map(function(f){
+        return "<strong>" + esc(f.type) + "</strong> — " + esc(f.from) + " to " + esc(f.to) +
+          "<br>" + esc(f.text) + (f.example ? "<br><em>Example: " + esc(f.example) + "</em>" : "");
+      })));
+    }
+    if(s.career){
+      section("Career conversations", ul(data.career.map(function(c){
+        return "<strong>" + esc(c.q) + "</strong><br>" + esc(c.a) + "<br><small>" + esc(c.byName) + "</small>";
+      })));
+    }
+    if(s.actions){
+      section("Action items", ul(data.actions.map(function(a){
+        return "<strong>" + esc(a.text) + "</strong> [" + esc(a.status) + "]<br>" +
+          "Owner: " + esc(a.owner) + (a.due ? " &middot; Due: " + esc(a.due) : "") +
+          (a.notes ? "<br>" + esc(a.notes) : "");
+      })));
+    }
+    if(s.concerns){
+      section("Documented concerns", ul(data.concerns.map(function(c){
+        return "<strong>" + esc(c.what) + "</strong>" +
+          (c.when ? "<br><strong>When:</strong> " + esc(c.when) : "") +
+          (c.expectation ? "<br><strong>Expectation:</strong> " + esc(c.expectation) : "") +
+          (c.communicated ? "<br><strong>Communicated:</strong> " + esc(c.communicated) : "") +
+          (c.previously ? "<br><strong>Discussed before:</strong> " + esc(c.previously) : "") +
+          (c.support ? "<br><strong>Support provided:</strong> " + esc(c.support) : "") +
+          (c.outcome ? "<br><strong>Outcome sought:</strong> " + esc(c.outcome) : "");
+      })));
+    }
+    if(s.review){
+      var draft = data.reviewDrafts[data.role] || "";
+      section("Review preparation", draft
+        ? "<pre style='font-family:inherit;white-space:pre-wrap;'>" + esc(draft) + "</pre>"
+        : "<p><em>No draft saved.</em></p>");
+    }
+    return H.join("\n");
+  }
+
+  function wrapDoc(inner){
+    return "<html xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'>" +
+      "<title>Performance Pulse</title><style>" +
+      "body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222;line-height:1.45;max-width:800px;margin:24px auto;padding:0 16px;}" +
+      "h1{font-size:20pt;color:#5b21b6;margin-bottom:4px;}h2{font-size:14pt;color:#7c3aed;margin-top:22px;border-bottom:1px solid #ddd;padding-bottom:4px;}" +
+      "h3{font-size:12pt;margin-top:14px;}li{margin-bottom:9px;}small{color:#666;}" +
+      "</style></head><body>" + inner + "</body></html>";
+  }
+
+  function downloadWord(name, inner){
+    var blob = new Blob(["﻿", wrapDoc(inner)], { type:"application/msword" });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url;
+    a.download = name + "-" + today() + ".doc";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  document.getElementById("exportWordBtn").addEventListener("click", function(){
+    confirmExport(function(){
+      downloadWord("performance-pulse", buildExportHtml());
+      commit(me() + " exported a Word file");
+    });
+  });
+  document.getElementById("exportPdfBtn").addEventListener("click", function(){
+    confirmExport(function(){
+      var w = window.open("", "_blank");
+      if(!w){ alert("Your browser blocked the print window. Allow pop-ups for this page and try again."); return; }
+      w.document.write(wrapDoc(buildExportHtml()));
+      w.document.close();
+      w.focus();
+      setTimeout(function(){ w.print(); }, 400);
+      commit(me() + " created a PDF");
+    });
+  });
+  document.getElementById("exportJsonBtn").addEventListener("click", function(){
+    confirmExport(function(){
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
+      var url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "performance-pulse-data-" + today() + ".json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      commit(me() + " exported the raw data");
+    });
+  });
+  document.getElementById("selectAllEx").addEventListener("click", function(){
+    document.querySelectorAll("#exportOptions [data-ex]").forEach(function(cb){ cb.checked = true; });
+  });
+  document.getElementById("selectNoneEx").addEventListener("click", function(){
+    document.querySelectorAll("#exportOptions [data-ex]").forEach(function(cb){ cb.checked = false; });
+  });
+
+  /* =====================================================================
+     DASHBOARD BITS
+     ===================================================================== */
+  document.getElementById("openWorkspaceBtn").addEventListener("click", function(){ show("oneOnOne"); });
+  document.getElementById("saveNext1").addEventListener("click", function(){
+    data.next1on1.date = document.getElementById("n1Date").value;
+    data.next1on1.time = document.getElementById("n1Time").value;
+    data.next1on1.focus = document.getElementById("n1Focus").value;
+    commit(me() + " updated the next 1:1 details");
+  });
+  document.getElementById("markAllRead").addEventListener("click", function(){
+    data.notifications.forEach(function(n){ n.read = true; });
+    commit(null);
+  });
+  document.getElementById("notifList").addEventListener("click", function(e){
+    var b = e.target.closest("[data-nread]");
+    if(!b) return;
+    var n = data.notifications.find(function(x){ return x.id === b.getAttribute("data-nread"); });
+    if(n){ n.read = true; commit(null); }
+  });
+
+  /* =====================================================================
+     RENDER
+     ===================================================================== */
+  function render(){
+    /* role chrome */
+    document.getElementById("roleEmp").classList.toggle("active", !isMgr());
+    document.getElementById("roleMgr").classList.toggle("active", isMgr());
+    var av = document.getElementById("whoAvatar");
+    av.textContent = initials(me());
+    av.className = "avatar " + (isMgr() ? "mgr" : "emp");
+    document.getElementById("whoName").innerHTML =
+      esc(me()) + "<small>" + (isMgr() ? "Manager — viewing " + esc(data.people.employee) : "Employee") + "</small>";
+
+    document.getElementById("tabConcerns").style.display = isMgr() ? "" : "none";
+    if(!isMgr() && subs.performance === "concerns") subs.performance = "achievements";
+
+    /* tabs */
+    document.querySelectorAll(".tabs").forEach(function(tabs){
+      var g = tabs.dataset.tabgroup;
+      tabs.querySelectorAll(".tab").forEach(function(t){
+        t.classList.toggle("active", t.dataset.sub === subs[g]);
+      });
+    });
+    ["prepare","talk","wrap"].forEach(function(s){
+      document.getElementById("sub-" + s).classList.toggle("active", subs.oneOnOne === s);
+    });
+    ["achievements","feedback","concerns","review"].forEach(function(s){
+      document.getElementById("sub-" + s).classList.toggle("active", subs.performance === s);
+    });
+
+    /* counts */
+    var openTopics = data.topics.filter(function(t){ return t.status !== "Resolved" && t.status !== "Parking Lot"; });
+    var activeGoals = data.goals.filter(function(g){ return g.status !== "Complete" && g.status !== "Deferred"; });
+    var openActions = data.actions.filter(function(a){ return a.status !== "Done"; });
+    var activeDev = data.development.filter(function(d){ return d.status !== "Complete" && d.status !== "Deferred"; });
+    var unread = data.notifications.filter(function(n){ return !n.read; });
+    var overdue = data.actions.filter(isOverdue);
+
+    document.getElementById("navTopics").textContent = openTopics.length;
+    document.getElementById("navGoals").textContent = activeGoals.length;
+    document.getElementById("navDev").textContent = activeDev.length;
+    document.getElementById("navActions").textContent = openActions.length;
+
+    document.getElementById("statTopics").textContent = openTopics.length;
+    document.getElementById("statGoals").textContent = activeGoals.length;
+    document.getElementById("statActions").textContent = openActions.length;
+    document.getElementById("statDev").textContent = activeDev.length;
+    document.getElementById("statNotifs").textContent = unread.length;
+
+    var avg = activeGoals.length
+      ? Math.round(activeGoals.reduce(function(s,g){ return s + (g.progress||0); },0) / activeGoals.length) : 0;
+    document.getElementById("statGoalsDesc").textContent = activeGoals.length
+      ? "Average progress " + avg + "%." : "Set one together.";
+    document.getElementById("statActionsDesc").textContent = overdue.length
+      ? overdue.length + " past its date." : "Nothing overdue.";
+
+    /* next 1:1 */
+    var n1 = data.next1on1, disp = document.getElementById("next1Display");
+    if(n1.date){
+      var d0 = new Date(n1.date + "T00:00:00");
+      var days = daysBetween(new Date(today() + "T00:00:00").getTime(), d0.getTime());
+      var when = days === 0 ? "Today" : days === 1 ? "Tomorrow" : days > 0 ? "In " + days + " days" : Math.abs(days) + " days ago";
+      disp.innerHTML = "<div style='font-size:16px;font-weight:700;'>" +
+        d0.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}) +
+        (n1.time ? " at " + fmtTime(n1.time) : "") + "</div>" +
+        "<div class='item-meta' style='margin-top:4px;'><span class='badge " + (days < 0 ? "b-grey" : "b-purple") + "'>" + when + "</span>" +
+        "<span>" + openTopics.length + " topic" + (openTopics.length === 1 ? "" : "s") + " on the agenda</span></div>" +
+        (n1.focus ? "<p style='margin:8px 0 0;font-size:13px;color:var(--muted);'>" + nl2br(n1.focus) + "</p>" : "");
+    } else {
+      disp.innerHTML = "<p style='color:var(--muted);font-size:13px;margin:0;'>No 1:1 scheduled yet. Pick a date below so you both know when this is happening.</p>";
+    }
+    document.getElementById("n1Date").value = n1.date || "";
+    document.getElementById("n1Time").value = n1.time || "";
+    document.getElementById("n1Focus").value = n1.focus || "";
+
+    /* dashboard lists */
+    renderTopicList(document.getElementById("dashTopics"), openTopics.slice(0,5), {
+      emptyTitle:"Nothing on the agenda", emptyBody:"Add a topic from My 1:1 so the conversation has a shape.", showStatus:false
+    });
+
+    var soon = data.actions.filter(function(a){
+      if(a.status === "Done") return false;
+      if(!a.due) return false;
+      return daysBetween(new Date(today()+"T00:00:00").getTime(), new Date(a.due+"T00:00:00").getTime()) <= 14;
+    }).sort(function(a,b){ return a.due < b.due ? -1 : 1; });
+    document.getElementById("dashActions").innerHTML =
+      actionListHtml(soon, "Nothing due soon", "Actions with a date in the next two weeks show up here.");
+
+    var recent = historyEntries().slice(0,4);
+    document.getElementById("dashRecent").innerHTML = recent.length
+      ? "<ul class='list timeline'>" + recent.map(function(h){
+          return "<li><div class='item-body'><div class='item-text'>" + esc(h.title) + "</div>" +
+            "<div class='item-meta'><span class='badge b-purple'>" + esc(h.cat) + "</span><span>" +
+            esc(h.who||"") + " &middot; " + ago(h.at) + "</span></div></div></li>";
+        }).join("") + "</ul>"
+      : "<div class='empty'><div class='big'>Nothing yet</div>Your conversations will build up here.</div>";
+
+    document.getElementById("notifList").innerHTML = data.notifications.length
+      ? data.notifications.slice(0,8).map(function(n){
+          return "<div class='notif" + (n.read ? "" : " unread") + "'>" +
+            "<div style='display:flex;gap:8px;'>" + (n.read ? "" : "<span class='udot'></span>") +
+            "<div><div class='item-text'>" + esc(n.text) + "</div>" +
+            "<div class='item-meta'>" + ago(n.at) + "</div></div></div>" +
+            (n.read ? "" : "<button class='btn ghost sm' data-nread='" + n.id + "'>Mark read</button>") + "</div>";
+        }).join("")
+      : "<div class='empty'><div class='big'>No updates</div>You're both caught up.</div>";
+
+    /* 1:1 */
+    if(current === "oneOnOne"){
+      if(subs.oneOnOne === "prepare") renderCheckin();
+      renderTopicList(document.getElementById("talkTopics"),
+        data.topics.filter(function(t){ return t.status !== "Parking Lot"; }),
+        { emptyTitle:"No topics yet", emptyBody:"Add something in Prepare to get started.", showStatus:true });
+      renderTopicList(document.getElementById("parkingTopics"),
+        data.topics.filter(function(t){ return t.status === "Parking Lot"; }),
+        { emptyTitle:"Parking lot is empty", emptyBody:"Anything you defer will land here.", showStatus:true });
+      document.getElementById("wrapActions").innerHTML =
+        actionListHtml(data.actions.filter(function(a){ return a.status !== "Done"; }).slice(0,8),
+          "No actions yet", "Add what you both agreed to do.");
+      if(!document.getElementById("wrapNext").value) document.getElementById("wrapNext").value = data.next1on1.date || "";
+    }
+
+    /* performance */
+    if(current === "performance"){
+      renderAchievements();
+      renderFeedback();
+      renderConcerns();
+      var draftEl = document.getElementById("reviewDraft");
+      if(document.activeElement !== draftEl) draftEl.value = data.reviewDrafts[data.role] || "";
+    }
+
+    if(current === "goals") renderGoals();
+    if(current === "development") renderDev();
+    if(current === "career") renderCareer();
+
+    if(current === "actions"){
+      document.querySelectorAll("#actionFilters .chip").forEach(function(c){
+        c.classList.toggle("active", c.getAttribute("data-afilter") === actionFilter);
+      });
+      document.getElementById("actionsList").innerHTML =
+        actionListHtml(filteredActions(), "Nothing here",
+          actionFilter === "done" ? "Completed actions will show up here." : "Add an action, or change the filter.");
+    }
+
+    if(current === "history") renderHistory();
+  }
+
+  /* seed the wrap-up date field once */
+  show("dashboard");
+})();
+</script>
+</body>
+</html>

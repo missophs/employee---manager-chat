@@ -1,0 +1,48 @@
+PP
+Performance Pulse
+Private manager-employee app
+Dashboard
+My 1:1
+Performance
+Goals
+Development
+Career
+Actions
+History
+Export
+Private workspace.
+Only the employee and direct manager can see this app. Nothing is automatically sent to HR.
+PREPARE -> TALK -> REFLECT -> ACT -> FOLLOW UP
+Dashboard
+Ongoing performance conversations without ratings, rankings, or automatic HR reporting.
+MRAK
+Maya Rivera + Alex Kim
+Employee and manager
+Privacy:
+You decide what leaves this app. Export creates a file for you to share intentionally.
+NEXT 1:1
+Thursday at 10:00 AM
+Focus on workload, customer rollout priorities, and development support.
+Open 1:1 workspace
+OPEN TOPICS
+0
+Ready for discussion.
+GOALS
+0
+Collaborative goals saved.
+ACTIONS
+0
+Follow-ups in motion.
+DEVELOPMENT
+0
+Growth plans active.
+NOTIFICATIONS
+0
+Unread manager/employee alerts.
+RECENT ACTIVITY
+No activity yet
+Updates appear as you use the app.
+HOW PEOPLE GET NOTIFIED
+In-app notification center
+Mark read
+In this single-file prototype, alerts appear here for the employee and manager. Real email, calendar, Slack, or push notifications would require a backend and user accounts.
