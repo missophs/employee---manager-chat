@@ -294,6 +294,15 @@
   }
   .privacy-banner strong{color:#d1fae5;}
 
+  /* Handbook line — one slim row, not a whole card */
+  .hb-strip{font-size:12.5px;color:rgba(255,255,255,.72);margin:0 0 16px;line-height:1.6;}
+  .hb-strip a{color:#93c5fd;font-weight:600;}
+  .hb-strip .hb-date{color:rgba(255,255,255,.45);}
+  .hb-strip button{
+    border:none;background:none;color:rgba(255,255,255,.45);font-family:inherit;
+    font-size:11.5px;cursor:pointer;padding:0;text-decoration:underline;
+  }
+
   /* ---------- Notification bell ---------- */
   .bell{
     position:relative;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);
@@ -433,7 +442,7 @@
           <button class="role-btn" id="roleMgr" data-role="manager">Manager</button>
         </div>
         <button class="bell" id="bellBtn" aria-label="Notifications" title="Notifications">
-          &#9679;<span class="count" id="bellCount" style="display:none;">0</span>
+          &#128276;<span class="count" id="bellCount" style="display:none;">0</span>
         </button>
         <div class="avatar" id="whoAvatar">MR</div>
         <div class="who" id="whoName"></div>
@@ -447,6 +456,7 @@
       <div class="privacy-banner">
         <strong>Private between you and your manager.</strong> Nothing here is automatically shared with HR. If you want HR to see something, you export it and share it yourself.
       </div>
+      <p class="hb-strip" id="hbStrip"></p>
 
       <div class="card" id="howToCard">
         <div class="card-head">
@@ -482,15 +492,6 @@
           <div class="field"><label for="pplMgr">Manager</label><input type="text" id="pplMgr" placeholder="Manager's name"></div>
         </div>
         <p class="card-note" style="margin-bottom:0;">Employee transferring, or manager leaving? Change the name here &mdash; past 1:1s in History keep the names they were written under. Proper re-pairing with sign-ins comes with the cloud version.</p>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <h2>Employee handbook &amp; policies</h2>
-          <button class="btn ghost sm" id="hbAddBtn">HR only: add a link</button>
-        </div>
-        <p class="card-note">Reference documents from HR &mdash; the handbook, key policies. Everyone can read them; only HR should add or change them. Proper HR-only control (uploads, permissions) comes with the cloud version.</p>
-        <div id="hbList"></div>
       </div>
 
       <div class="card">
@@ -683,6 +684,7 @@
           <div class="field"><label for="wrapContinue">Continue</label><input type="text" id="wrapContinue" placeholder="One thing that works — keep doing it"></div>
           <div class="row">
             <div class="field"><label for="wrapNext">Next conversation</label><input type="date" id="wrapNext"></div>
+            <div class="field"><label for="wrapCheckin">We will check in with you in 90 days &mdash; on</label><input type="date" id="wrapCheckin"></div>
           </div>
           <div class="btn-row">
             <button class="btn" id="saveWrapBtn">Save summary &amp; close out this 1:1</button>
@@ -1734,7 +1736,8 @@
   document.getElementById("saveWrapBtn").addEventListener("click", function(){
     var discussed = mv("wrapDiscussed"), agreed = mv("wrapAgreed"),
         revisit = mv("wrapRevisit"), next = mv("wrapNext"),
-        sscStart = mv("wrapStart"), sscStop = mv("wrapStop"), sscContinue = mv("wrapContinue");
+        sscStart = mv("wrapStart"), sscStop = mv("wrapStop"), sscContinue = mv("wrapContinue"),
+        checkin = mv("wrapCheckin");
     if(!discussed && !agreed){
       alert("Add at least what you discussed or what you agreed on before closing out.");
       return;
@@ -1744,13 +1747,13 @@
     data.meetings.unshift({
       id:mid, date:data.next1on1.date || today(), time:data.next1on1.time,
       discussed:discussed, agreed:agreed, revisit:revisit,
-      start:sscStart, stop:sscStop, keep:sscContinue,
+      start:sscStart, stop:sscStop, keep:sscContinue, checkin90:checkin,
       topics:closed.map(function(t){ return { text:t.text, cat:t.cat, status:t.status, notes:t.notes }; }),
       by:me(), at:now()
     });
     data.checkins.forEach(function(c){ if(!c.meetingId) c.meetingId = mid; });
     data.topics = data.topics.filter(function(t){ return t.status !== "Discussed" && t.status !== "Resolved"; });
-    ["wrapDiscussed","wrapAgreed","wrapRevisit","wrapStart","wrapStop","wrapContinue"].forEach(function(id){
+    ["wrapDiscussed","wrapAgreed","wrapRevisit","wrapStart","wrapStop","wrapContinue","wrapCheckin"].forEach(function(id){
       document.getElementById(id).value = "";
     });
     if(next){ data.next1on1.date = next; }
@@ -1760,7 +1763,7 @@
   document.getElementById("addActionFromWrap").addEventListener("click", function(){ openActionModal(); });
   document.getElementById("clearWrapBtn").addEventListener("click", function(){
     if(!confirm("Clear everything typed into this wrap-up? Closed-out 1:1s in History are not affected.")) return;
-    ["wrapDiscussed","wrapAgreed","wrapRevisit","wrapStart","wrapStop","wrapContinue","wrapNext"].forEach(function(id){
+    ["wrapDiscussed","wrapAgreed","wrapRevisit","wrapStart","wrapStop","wrapContinue","wrapNext","wrapCheckin"].forEach(function(id){
       document.getElementById(id).value = "";
     });
   });
@@ -2439,7 +2442,8 @@
       out.push({ cat:"1:1", at:m.at, title:"1:1 — " + empName() + " with " + mgrName() + " — " + fmtDate(m.date),
         body:[m.discussed && "Discussed: " + m.discussed, m.agreed && "Agreed: " + m.agreed,
               m.revisit && "To revisit: " + m.revisit,
-              (m.start || m.stop || m.keep) && "Start: " + (m.start||"—") + " · Stop: " + (m.stop||"—") + " · Continue: " + (m.keep||"—")].filter(Boolean).join("\n"),
+              (m.start || m.stop || m.keep) && "Start: " + (m.start||"—") + " · Stop: " + (m.stop||"—") + " · Continue: " + (m.keep||"—"),
+              m.checkin90 && "90-day check-in: " + fmtDate(m.checkin90)].filter(Boolean).join("\n"),
         who:m.by });
     });
     data.checkins.forEach(function(c){
@@ -2676,7 +2680,8 @@
           (m.agreed ? "<br><strong>Agreed:</strong> " + esc(m.agreed) : "") +
           (m.revisit ? "<br><strong>To revisit:</strong> " + esc(m.revisit) : "") +
           ((m.start || m.stop || m.keep) ? "<br><strong>Start · Stop · Continue:</strong> " +
-            esc(m.start||"—") + " · " + esc(m.stop||"—") + " · " + esc(m.keep||"—") : "");
+            esc(m.start||"—") + " · " + esc(m.stop||"—") + " · " + esc(m.keep||"—") : "") +
+          (m.checkin90 ? "<br><strong>90-day check-in:</strong> " + esc(fmtDate(m.checkin90)) : "");
       })));
     }
     if(s.goals){
@@ -3025,31 +3030,33 @@
   });
   renderDocuments();
 
-  /* ---- handbook & policies: readable by both, managed by HR ---- */
+  /* ---- handbook: one slim line at the top, readable by both, managed by HR ---- */
   function renderHandbook(){
-    var el = document.getElementById("hbList");
+    var el = document.getElementById("hbStrip");
     if(!data.handbook.length){
-      el.innerHTML = "<div class='empty'><div class='big'>Put the handbook one click away</div>Ask HR for the link and add it once — then it's here for both of you.</div>";
+      el.innerHTML = "&#128278; Please see the employee handbook for any questions. <button data-hbadd='1'>HR only: add the link</button>";
       return;
     }
-    el.innerHTML = "<ul class='list'>" + data.handbook.map(function(h){
-      return "<li><div class='item-body'>" +
-        "<div class='item-text'><a href='" + esc(h.url) + "' target='_blank' rel='noopener'>" + esc(h.title) + "</a></div>" +
-        "</div><div class='item-actions'>" +
-        "<button class='btn ghost sm' data-hbdel='" + h.id + "'>HR only: remove</button>" +
-        "</div></li>";
-    }).join("") + "</ul>";
+    el.innerHTML = "&#128278; Please see the attached handbook for any questions: " +
+      data.handbook.map(function(h){
+        return "<a href='" + esc(h.url) + "' target='_blank' rel='noopener'>" + esc(h.title) + "</a>" +
+          " <span class='hb-date'>(" + fmtDate((h.at || "").slice(0,10)) + ")</span>" +
+          " <button data-hbdel='" + h.id + "' title='Only HR should do this'>remove</button>";
+      }).join(" &middot; ") +
+      " &middot; <button data-hbadd='1'>HR only: add another</button>";
   }
-  document.getElementById("hbAddBtn").addEventListener("click", function(){
-    var title = prompt("Name of the document (e.g. Employee Handbook 2026):");
-    if(!title || !title.trim()) return;
-    var url = prompt("Link to it (the address HR gave you):");
-    if(!url || !url.trim()) return;
-    if(!/^https?:\/\//i.test(url.trim())){ alert("That doesn't look like a web address. It should start with https://"); return; }
-    data.handbook.push({ id:uid(), title:title.trim(), url:url.trim(), at:now() });
-    save(); renderHandbook();
-  });
-  document.getElementById("hbList").addEventListener("click", function(e){
+  document.getElementById("hbStrip").addEventListener("click", function(e){
+    var add = e.target.closest("[data-hbadd]");
+    if(add){
+      var title = prompt("Name of the document (e.g. Employee Handbook 2026):");
+      if(!title || !title.trim()) return;
+      var url = prompt("Link to it (the address HR gave you):");
+      if(!url || !url.trim()) return;
+      if(!/^https?:\/\//i.test(url.trim())){ alert("That doesn't look like a web address. It should start with https://"); return; }
+      data.handbook.push({ id:uid(), title:title.trim(), url:url.trim(), at:now() });
+      save(); renderHandbook();
+      return;
+    }
     var del = e.target.closest("[data-hbdel]");
     if(!del) return;
     var i = data.handbook.findIndex(function(h){ return h.id === del.getAttribute("data-hbdel"); });
