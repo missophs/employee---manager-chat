@@ -828,9 +828,9 @@
           <label class="checkline"><input type="checkbox" data-ex="past1on1s"> Past 1:1 summaries</label>
           <div id="pastMeetingPicker" style="display:none;margin:2px 0 10px 26px;padding-left:12px;border-left:2px solid var(--border);"></div>
           <label class="checkline"><input type="checkbox" data-ex="goals" checked> Goals</label>
-          <label class="checkline"><input type="checkbox" data-ex="development"> Development plan</label>
-          <label class="checkline"><input type="checkbox" data-ex="performance"> Performance summary (achievements &amp; feedback)</label>
-          <label class="checkline"><input type="checkbox" data-ex="career"> Career conversations</label>
+          <label class="checkline"><input type="checkbox" data-ex="development" checked> Learning &amp; development plan</label>
+          <label class="checkline"><input type="checkbox" data-ex="performance" checked> Performance summary (achievements &amp; feedback)</label>
+          <label class="checkline"><input type="checkbox" data-ex="career" checked> Career conversations</label>
           <label class="checkline"><input type="checkbox" data-ex="actions" checked> Action items</label>
           <label class="checkline"><input type="checkbox" data-ex="concerns"> Documented concerns <span style="color:var(--faint);font-size:12px;">(manager notes)</span></label>
           <label class="checkline"><input type="checkbox" data-ex="review"> Review preparation draft</label>
@@ -846,6 +846,7 @@
         <div class="btn-row">
           <button class="btn" id="exportWordBtn">Download as Word</button>
           <button class="btn secondary" id="exportPdfBtn">Save as PDF</button>
+          <button class="btn secondary" id="exportExcelBtn">Download for Excel</button>
           <button class="btn ghost" id="exportJsonBtn">Download raw data (JSON)</button>
         </div>
       </div>
@@ -1133,6 +1134,18 @@
      ===================================================================== */
   var SUGGESTIONS = {
     employee:{
+      "Where I stand":[
+        "Am I meeting expectations? Be straight with me.",
+        "If my review were written today, what would it say?",
+        "Is there anything I'm doing that's holding me back?",
+        "What does doing this role really well look like to you?"
+      ],
+      "Follow-ups":[
+        "What should I follow up on from our last 1:1?",
+        "What do you expect from me before our next 1:1?",
+        "Is there anything I said I'd do that I haven't closed out?",
+        "What would you like me to do differently next time?"
+      ],
       "Wins":[
         "Can I walk you through how the last project actually went?",
         "Here's something that went better than I expected — can I share it?",
@@ -1154,9 +1167,16 @@
         "I want to flag that I'm at risk of missing something — can we reprioritise?"
       ],
       "Feedback":[
+        "What am I doing well right now?",
+        "What's the one thing I should improve first?",
         "What's one thing I could do differently?",
         "Where do you think I'm strongest right now?",
         "Is there anything you've been meaning to tell me and haven't?"
+      ],
+      "Good to know":[
+        "Is there anything happening above my level that affects my work?",
+        "Anything you'd want me to know that we haven't talked about?",
+        "Is there something everyone seems to know that I don't?"
       ],
       "Recognition":[
         "I want to flag what someone else did on this — can I tell you about it?",
@@ -1167,10 +1187,16 @@
         "What experience am I missing for the next step?",
         "Is the path I'm imagining realistic from where you sit?"
       ],
-      "Development":[
+      "Learning & development":[
         "Could I take the lead on something to build that skill?",
         "What skill would make the biggest difference to my work this year?",
-        "Is there a project coming up that would stretch me?"
+        "Is there a project coming up that would stretch me?",
+        "Is there training or a course you'd support me doing this year?"
+      ],
+      "Advice":[
+        "Can I get your advice on something before I decide?",
+        "How would you approach this if you were in my position?",
+        "Can we grab extra time one-on-one this week? I'd like to talk something through."
       ],
       "Support needed":[
         "Here's specifically what I need from you on this.",
@@ -1184,6 +1210,17 @@
       ]
     },
     manager:{
+      "Where things stand":[
+        "Is what's expected of you actually clear?",
+        "Where do you think you stand right now? Let's compare notes.",
+        "If your review were today, nothing in it should surprise you — does that hold?",
+        "I want to flag something small before it becomes something big — can we talk about it?"
+      ],
+      "Follow-ups":[
+        "What did we agree last time, and where did it land?",
+        "What do you need from me before our next 1:1?",
+        "What should we make sure we come back to next time?"
+      ],
       "Wins":[
         "What went better than you expected recently?",
         "What are you proudest of this month?",
@@ -1205,9 +1242,16 @@
         "Are you working hours you don't want to be working?"
       ],
       "Feedback":[
+        "Here's what I think you're doing well — can we go through it?",
+        "Here's the one thing I'd work on next — and how I can help.",
         "What feedback would be most useful to you right now?",
         "How am I doing at supporting you?",
         "What do you wish I did differently as your manager?"
+      ],
+      "Good to know":[
+        "Is anything coming up — leave, deadlines, changes — I should plan around?",
+        "Anything you'd want me to know that we haven't covered?",
+        "Is there context from above that would help you make sense of things?"
       ],
       "Recognition":[
         "Whose contribution here deserves more credit than it got?",
@@ -1218,10 +1262,16 @@
         "What kind of work do you want more of?",
         "Is there a part of your job you'd happily never do again?"
       ],
-      "Development":[
+      "Learning & development":[
         "What skill do you want to build next?",
         "What would stretch you in a good way rather than a stressful one?",
-        "Is there someone here you'd like to learn from?"
+        "Is there someone here you'd like to learn from?",
+        "Is there training or a course that would help you get where you want to go?"
+      ],
+      "Advice":[
+        "Anything you'd like my advice on — or would a sounding board be more useful?",
+        "Is there a decision you're sitting on that we should talk through?",
+        "Do you want extra time one-on-one this week, outside the usual slot?"
       ],
       "Team issues":[
         "How is the team working together right now?",
@@ -2610,6 +2660,51 @@
       w.focus();
       setTimeout(function(){ w.print(); }, 400);
       commit(me() + " created a PDF");
+    });
+  });
+  /* Excel gets a flat table: one row per item, same scope choices as Word/PDF. */
+  function buildExportRows(){
+    var s = selectedScopes(), rows = [["Section","Item","Detail","Status","Who","Date"]];
+    function row(section, item, detail, status, who, date){
+      rows.push([section, item || "", detail || "", status || "", who || "", date || ""]);
+    }
+    if(s.current1on1) data.topics.forEach(function(t){
+      row("Current 1:1", t.text, [t.why, t.notes].filter(Boolean).join(" — "), t.status, t.byName, "");
+    });
+    if(s.past1on1s) selectedMeetings().forEach(function(m){
+      row("Past 1:1", "1:1 summary", ["Discussed: " + (m.discussed||"—"), m.agreed ? "Agreed: " + m.agreed : "", m.revisit ? "Revisit: " + m.revisit : ""].filter(Boolean).join(" | "), "", "", m.date);
+    });
+    if(s.goals) data.goals.forEach(function(g){
+      row("Goals", g.text, [g.why, g.measure].filter(Boolean).join(" — "), g.status + ", " + (g.progress||0) + "%", g.owner || data.people.employee, g.target || "");
+    });
+    if(s.development) data.development.forEach(function(d){
+      row("Development", d.area, [d.activity, d.support ? "Support: " + d.support : ""].filter(Boolean).join(" — "), d.status, "", d.target || "");
+    });
+    if(s.performance){
+      data.achievements.forEach(function(a){ row("Achievements", a.title, a.impact, a.cat, a.byName, a.date); });
+      data.feedback.forEach(function(f){ row("Feedback", f.type, f.text, "", f.from + " to " + f.to, ""); });
+    }
+    if(s.career) data.career.forEach(function(c){ row("Career", c.q, c.a, "", c.byName, ""); });
+    if(s.actions) data.actions.forEach(function(a){ row("Actions", a.text, a.notes, a.status, a.owner, a.due || ""); });
+    if(s.concerns) data.concerns.forEach(function(c){
+      row("Concerns", c.what, [c.expectation ? "Expectation: " + c.expectation : "", c.support ? "Support: " + c.support : "", c.outcome ? "Outcome sought: " + c.outcome : ""].filter(Boolean).join(" | "), "", "", c.when || "");
+    });
+    if(s.review && data.reviewDrafts[data.role]) row("Review draft", "Prepared by " + me(), data.reviewDrafts[data.role], "", me(), "");
+    return rows;
+  }
+
+  document.getElementById("exportExcelBtn").addEventListener("click", function(){
+    confirmExport(function(){
+      var csv = buildExportRows().map(function(r){
+        return r.map(function(cell){ return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(",");
+      }).join("\r\n");
+      /* BOM so Excel reads accented characters correctly */
+      var blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" });
+      var url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "performance-pulse-" + today() + ".csv";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      commit(me() + " exported an Excel file");
     });
   });
   document.getElementById("exportJsonBtn").addEventListener("click", function(){

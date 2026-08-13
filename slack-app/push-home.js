@@ -18,8 +18,8 @@ const { homeTab } = require("./blocks");
 const web = new WebClient(process.env.SLACK_BOT_TOKEN);
 
 const TARGETS = [
-  { id: "U0BQQTKLQ1E", name: "Melissa Weiss", openTopics: 2, openActions: 1, plans: 1, when: "Thu, Aug 13 at 10:00 AM" },
-  { id: "U0BPSUWKGRK", name: "Monte Montoya", openTopics: 2, openActions: 3, plans: 2, when: "Thu, Aug 13 at 10:00 AM" }
+  { id: "U0BQQTKLQ1E", name: "Melissa Weiss", role: "manager", openTopics: 2, openActions: 1, plans: 1, when: "Thu, Aug 13 at 10:00 AM" },
+  { id: "U0BPSUWKGRK", name: "Monte Montoya", role: "employee", openTopics: 2, openActions: 3, plans: 2, when: "Thu, Aug 13 at 10:00 AM" }
 ];
 
 (async () => {

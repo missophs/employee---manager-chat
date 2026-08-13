@@ -5,3 +5,4 @@ performance-pulse-data-*.json
 node_modules/
 .env
 *.log
+.gstack/

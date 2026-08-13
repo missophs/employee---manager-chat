@@ -85,12 +85,20 @@ const PAIRS = {
 
 const counterpartOf = (userId) => PAIRS[userId] || null;
 
+/* Which side of the 1:1 each person is on — it decides which example
+   questions their Home tab suggests. Swap the values if this is backwards. */
+const ROLES = {
+  U0BQQTKLQ1E: "manager",   // Melissa Weiss
+  U0BPSUWKGRK: "employee"   // Monte Montoya
+};
+
 /* Counts for one person only. Anything the other person wrote is theirs, so
    it is filtered out here rather than summed across the workspace. */
 const summary = (name, userId) => {
   const mine = (list) => list.filter((item) => item.by === userId);
   return {
     name,
+    role: ROLES[userId] || "employee",
     openTopics: mine(state.topics).length,
     openActions: mine(state.actions).length,
     plans: mine(state.plans).length,

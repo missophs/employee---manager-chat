@@ -149,7 +149,26 @@ function build(kind, data = {}) {
  * The tab a person sees when they click Performance Pulse in their Slack
  * sidebar. Same restraint applies — counts, never content.
  */
-function homeTab({ name = "there", openTopics = 0, openActions = 0, plans = 0, when = null }) {
+/* Example questions per role, drawn from the same library the web app uses.
+   The employee's set leans on performance questions — where do I stand, what's
+   expected — so nobody drifts along unaware until review time. */
+const EXAMPLES = {
+  employee: [
+    "Am I meeting expectations? Be straight with me.",
+    "What should I follow up on from our last 1:1?",
+    "Of everything on my plate, what matters most to you this month?",
+    "What would it take to move toward the next step?"
+  ],
+  manager: [
+    "Where do you think you stand right now? Let's compare notes.",
+    "What's slowing you down that I could remove?",
+    "What did we agree last time, and where did it land?",
+    "How is your workload actually feeling — not the tidy answer?"
+  ]
+};
+
+function homeTab({ name = "there", role = "employee", openTopics = 0, openActions = 0, plans = 0, when = null }) {
+  const examples = EXAMPLES[role] || EXAMPLES.employee;
   return {
     type: "home",
     blocks: [
@@ -165,6 +184,8 @@ function homeTab({ name = "there", openTopics = 0, openActions = 0, plans = 0, w
           { type: "mrkdwn", text: `*Next 1:1*\n${when || "Not scheduled"}` }
         ]
       },
+      divider(),
+      section("*Worth asking in your next 1:1*\n" + examples.map((q) => `• ${q}`).join("\n")),
       divider(),
       section("*Add something to the agenda*\nIt shows up for the other person straight away."),
       {
