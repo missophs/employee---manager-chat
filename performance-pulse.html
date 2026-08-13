@@ -330,6 +330,32 @@
     font-size:12px;color:var(--muted);line-height:1.5;
   }
 
+  /* ---------- Ping toast ---------- */
+  .toast-wrap{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:120;
+    display:flex;flex-direction:column;gap:8px;width:min(430px,calc(100% - 24px));pointer-events:none;
+  }
+  .toast{
+    background:#1a1035;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:14px;
+    padding:12px 14px;box-shadow:0 18px 40px rgba(26,16,53,.42);font-size:13px;line-height:1.45;
+    display:flex;gap:10px;align-items:flex-start;animation:toastIn .25s ease;pointer-events:auto;
+  }
+  .toast .t-dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);flex:none;margin-top:5px;}
+  .toast strong{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#c4b5fd;margin-bottom:3px;}
+  .toast .t-x{background:none;border:0;color:#a99fd0;cursor:pointer;font-size:17px;line-height:1;padding:0 0 0 4px;flex:none;}
+  @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+  /* ---------- Block Kit ---------- */
+  pre.code{
+    background:#150f2e;color:#e6e1ff;border-radius:12px;padding:14px;overflow-x:auto;margin:0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;
+    max-height:360px;
+  }
+  .code-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 8px;}
+  .switch{display:inline-flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;line-height:1.5;}
+  .switch input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex:none;margin-top:2px;}
+  .switch small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}
+
   .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px;margin-top:8px;}
   .kv dt{color:var(--faint);font-weight:600;}
   .kv dd{margin:0;color:var(--text);}
@@ -388,6 +414,7 @@
       <button class="nav-item" data-view="career">Career</button>
       <button class="nav-item" data-view="actions">Actions <span class="nav-count" id="navActions">0</span></button>
       <button class="nav-item" data-view="history">History</button>
+      <button class="nav-item" data-view="slack">Slack</button>
       <button class="nav-item" data-view="export">Export</button>
     </nav>
     <div class="privacy-note">
@@ -676,6 +703,18 @@
       <h1>Learning &amp; development</h1>
       <p class="subtitle">Either of you can start this. Managers recommend, employees request &mdash; both count.</p>
       <div class="card">
+        <div class="card-head"><h2>Ask for a recommendation</h2>
+          <button class="btn sm" id="ldRecommendBtn">Recommend learning &amp; development</button></div>
+        <p class="card-note">The one place this app offers you a suggestion &mdash; and only when you press the button. Say what you want to get better at and it will propose activities you can turn into a plan.</p>
+        <div class="limits">
+          <label class="switch">
+            <input type="checkbox" id="assistToggle">
+            <span><strong>Let the app comment while I write</strong>
+            <small>Off by default. Turned on, it points out when feedback reads as a judgement rather than something observable, and asks follow-up questions during check-ins. It never does either unless this is ticked.</small></span>
+          </label>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-head"><h2>Development plans</h2>
           <button class="btn sm" id="addDevBtn" >Add a development plan</button></div>
         <div id="devList"></div>
@@ -739,6 +778,41 @@
       </div>
     </section>
 
+    <!-- ================= SLACK ================= -->
+    <section id="view-slack" class="view">
+      <h1>Slack</h1>
+      <p class="subtitle">A ping that finds you, and the Block Kit layout behind it.</p>
+
+      <div class="privacy-banner">
+        <strong>Pings never carry performance content.</strong> Slack workspace admins can export DM history, so a message here only says that something happened. The substance stays in this app, between the two of you.
+      </div>
+
+      <div class="card">
+        <h2>The ping</h2>
+        <p class="card-note">A notification that arrives on its own, instead of a bell you have to remember to check.</p>
+        <div class="btn-row">
+          <button class="btn" id="pingEnable">Turn on desktop pings</button>
+          <button class="btn secondary" id="pingTest">Send a test ping</button>
+        </div>
+        <div class="limits" id="pingState"></div>
+      </div>
+
+      <div class="card">
+        <h2>Block Kit layouts</h2>
+        <p class="card-note">Pick a ping. The JSON is valid Block Kit built from what is actually in this workspace right now &mdash; paste it into Slack&rsquo;s Block Kit Builder and it renders as a real message.</p>
+        <div class="filters" id="bkPicker"></div>
+        <div class="code-head">
+          <span style="font-size:12px;color:var(--faint);" id="bkLabel"></span>
+          <div class="btn-row" style="margin:0;">
+            <button class="btn ghost sm" id="bkCopy">Copy JSON</button>
+            <button class="btn ghost sm" id="bkOpen">Open Block Kit Builder</button>
+          </div>
+        </div>
+        <pre class="code" id="bkJson"></pre>
+        <div class="limits">Block Kit describes how a Slack message <em>looks</em>. It is not what delivers it. Sending these for real needs a Slack app with a server behind it, which also means performance data would live on that server rather than on this device. <strong>SLACK.md</strong> in this repo lays out exactly what that path costs and what it changes.</div>
+      </div>
+    </section>
+
     <!-- ================= EXPORT ================= -->
     <section id="view-export" class="view">
       <h1>Export</h1>
@@ -779,6 +853,8 @@
   </main>
 </div>
 
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
 <!-- Modal -->
 <div class="overlay" id="overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -809,7 +885,8 @@
       topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
       goals:[], development:[], career:[], concerns:[], actions:[],
       notifications:[], reviewDrafts:{ employee:"", manager:"" },
-      feedbackRequests:[], customSuggestions:[]
+      feedbackRequests:[], customSuggestions:[],
+      assist:false
     };
   }
 
@@ -925,7 +1002,7 @@
   /* =====================================================================
      NAVIGATION
      ===================================================================== */
-  var VIEWS = ["dashboard","oneOnOne","performance","goals","development","career","actions","history","export"];
+  var VIEWS = ["dashboard","oneOnOne","performance","goals","development","career","actions","history","slack","export"];
   var current = "dashboard";
   var subs = { oneOnOne:"prepare", performance:"achievements" };
 
@@ -1292,9 +1369,11 @@
     { id:"stretch",  q:"Is there a stretch assignment that would grow them?" }
   ];
 
-  /* adaptive follow-ups keyed to the answer of a given question */
+  /* Adaptive follow-ups keyed to the answer of a given question.
+     Silent unless the user has explicitly opted in — see assistOn(). */
   function followUps(qid, answer){
     var out = [];
+    if(!assistOn()) return out;
     if((qid === "blocked" || qid === "support") && matches(answer, LOAD_WORDS)){
       out.push({ id:qid+"_load1", q:"Which responsibilities are taking the most time?" });
       out.push({ id:qid+"_load2", q:"What would help most: reprioritizing, more support, clearer expectations, or something else?" });
@@ -1592,7 +1671,7 @@
         var text = mv("fbText");
         if(!text){ document.getElementById("fbText").focus(); return; }
         var example = mv("fbExample");
-        if(isVague(text) && !example){
+        if(assistOn() && isVague(text) && !example){
           document.getElementById("fbCoach").innerHTML =
             "<div class='coach'><strong>Before you save</strong>That reads as a judgement rather than something observable. " +
             "Add one specific example &mdash; what happened and when &mdash; or save anyway if you'd rather talk it through in person.</div>" +
@@ -1714,7 +1793,7 @@
       function(){
         var what = mv("cnWhat");
         if(!what){ document.getElementById("cnWhat").focus(); return; }
-        if(isVague(what)){
+        if(assistOn() && isVague(what)){
           document.getElementById("cnCoach").innerHTML =
             "<div class='coach'><strong>Try rewriting this</strong>" +
             "This describes intent or character rather than behaviour. Swap &ldquo;they don't care about deadlines&rdquo; for " +
@@ -1928,22 +2007,30 @@
         }
       }, existing ? "Save changes" : "Save plan");
 
-    /* activity ideas react to the chosen type */
+    /* Ideas stay hidden until asked for. Nothing here volunteers itself. */
     var typeSel = document.getElementById("dvType");
+    var ideasOpen = false;
     function paintIdeas(){
+      var box = document.getElementById("dvIdeas");
       var ideas = DEV_IDEAS[typeSel.value] || [];
-      document.getElementById("dvIdeas").innerHTML = ideas.length
-        ? "<div class='coach' style='margin:0 0 12px;'><strong>Ideas for " + esc(typeSel.value.toLowerCase()) + "</strong>" +
-          ideas.map(function(t,i){
-            return "<div style='display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:6px;'>" +
-              "<span>" + esc(t) + "</span>" +
-              "<button class='btn ghost sm' data-devidea='" + i + "'>Use</button></div>";
-          }).join("") + "</div>"
-        : "";
+      if(!ideasOpen || !ideas.length){
+        box.innerHTML = ideas.length
+          ? "<div class='btn-row' style='margin:0 0 12px;'><button class='btn ghost sm' id='dvAskIdeas'>Show me ideas for " +
+            esc(typeSel.value.toLowerCase()) + "</button></div>"
+          : "";
+        return;
+      }
+      box.innerHTML = "<div class='coach' style='margin:0 0 12px;'><strong>Ideas for " + esc(typeSel.value.toLowerCase()) + "</strong>" +
+        ideas.map(function(t,i){
+          return "<div style='display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:6px;'>" +
+            "<span>" + esc(t) + "</span>" +
+            "<button class='btn ghost sm' data-devidea='" + i + "'>Use</button></div>";
+        }).join("") + "</div>";
     }
     paintIdeas();
     typeSel.addEventListener("change", paintIdeas);
     document.getElementById("dvIdeas").addEventListener("click", function(e){
+      if(e.target.closest("#dvAskIdeas")){ ideasOpen = true; paintIdeas(); return; }
       var b = e.target.closest("[data-devidea]");
       if(!b) return;
       var ideas = DEV_IDEAS[typeSel.value] || [];
@@ -2623,9 +2710,10 @@
         }).join("") + "</div>"
       : "<div class='empty' style='padding:16px;'>Nothing new from " + esc(them()) + ".</div>";
 
-    body += "<div class='limits'>These alerts live inside this app only. Real email, calendar, " +
-      "Slack or push notifications would need a backend and real user accounts &mdash; which this " +
-      "prototype deliberately doesn't have, because that's also what keeps your data on your own device.</div>";
+    body += "<div class='limits'>These live inside this app. Desktop pings can push them at you instead " +
+      "&mdash; turn them on under <strong>Slack</strong> &mdash; but only while this page is open in a tab. " +
+      "Reaching you when it's closed needs a server, which this file deliberately doesn't have, because that's " +
+      "also what keeps your data on your own device.</div>";
 
     openModal("Notifications", "", body, function(){
       myNotifications().forEach(function(n){ n.read = true; });
@@ -2650,6 +2738,426 @@
     if(!b) return;
     var n = data.notifications.find(function(x){ return x.id === b.getAttribute("data-nread"); });
     if(n){ n.read = true; commit(null); }
+  });
+
+  /* =====================================================================
+     THE ASSISTANT SWITCH
+
+     Off unless the user ticks it. While off, nothing in this app volunteers
+     an opinion — no nudges about wording, no follow-up questions. The only
+     suggestion that always works is the one below, and it only runs when
+     somebody presses the button.
+     ===================================================================== */
+  function assistOn(){ return data.assist === true; }
+
+  document.getElementById("assistToggle").addEventListener("change", function(){
+    data.assist = this.checked;
+    save();
+    toast(this.checked ? "Comments on" : "Comments off",
+      this.checked
+        ? "The app will now flag vague wording and ask follow-up questions while you write."
+        : "The app will stay quiet unless you ask it for a recommendation.");
+  });
+
+  /* =====================================================================
+     LEARNING & DEVELOPMENT RECOMMENDATIONS
+
+     A fixed table written by a person, matched on keywords. Not a language
+     model: it has not read the goals, feedback, or anything else in this
+     workspace, and it says so.
+     ===================================================================== */
+  var LD_RULES = [
+    { keys:["present","presentation","speak","slide","deck","storytell","executive presence","board","keynote","stage","pitch"],
+      area:"Executive presentation skills",
+      why:"Be more effective in front of senior stakeholders, where the audience is short on time and long on questions.",
+      picks:[
+        ["Leadership exposure","Present the monthly business update to the leadership team"],
+        ["Coaching","Two sessions with a presentation coach before the next big one"],
+        ["Stretch assignment","Own the narrative for one quarterly review end to end"]
+      ],
+      support:"Review the first two decks and give feedback before they go out.",
+      measure:"Leads the quarterly leadership presentation without needing a rehearsal safety net." },
+
+    { keys:["manage people","managing","first-time manager","lead a team","leadership","supervis","become a manager","people leader","line manage"],
+      area:"People leadership",
+      why:"Move from doing the work well to getting good work done through other people — a different job, not a bigger version of the same one.",
+      picks:[
+        ["Mentoring","Find a manager two levels up outside your reporting line and meet monthly"],
+        ["Stretch assignment","Lead a small project team where you have no formal authority"],
+        ["Training","A structured first-line manager programme, then apply one thing per week"]
+      ],
+      support:"Debrief every people decision together for the first quarter, before and after.",
+      measure:"Runs their own team's planning and 1:1s with the manager only as a sounding board." },
+
+    { keys:["influence","stakeholder","buy-in","buy in","persuad","negotiat","politics","alignment","push back","pushback"],
+      area:"Influence and stakeholder management",
+      why:"Get to a decision when you do not control the people whose agreement you need.",
+      picks:[
+        ["Coaching","Map the stakeholders on one live piece of work and test the map with a coach"],
+        ["Job shadowing","Sit in on negotiations run by someone who does this well"],
+        ["Cross-functional experience","Take the interface between two teams as your own problem to solve"]
+      ],
+      support:"Sit in on one stakeholder meeting a month as an observer, then debrief.",
+      measure:"Lands a cross-team decision without escalating it upward." },
+
+    { keys:["difficult conversation","conflict","feedback conversation","tough conversation","confront","disagree","tension","underperform"],
+      area:"Difficult conversations",
+      why:"Say the hard thing early and clearly, while it is still a small problem.",
+      picks:[
+        ["Training","A conversation-skills workshop with live practice, not just theory"],
+        ["Coaching","Rehearse the next real conversation with a coach beforehand"],
+        ["Peer learning","Swap prep and debriefs with a peer who faces the same conversations"]
+      ],
+      support:"Role-play the conversation before it happens and debrief straight after.",
+      measure:"Raises an issue within a week of noticing it, rather than at review time." },
+
+    { keys:["delegat","prioriti","workload","time management","overwhelm","capacity","too much","saying no","say no","bandwidth","stretched"],
+      area:"Delegation and prioritisation",
+      why:"Free up the time that only you can spend, and stop being the bottleneck on your own team.",
+      picks:[
+        ["Coaching","List everything you did last week and agree what should not have been yours"],
+        ["Stretch assignment","Hand one recurring responsibility to someone else and coach them through it"],
+        ["Reading / resource","One book on prioritisation, and one person to argue about it with"]
+      ],
+      support:"Agree together what they stop doing — not just what they start.",
+      measure:"Two standing responsibilities are owned by someone else and running without them." },
+
+    { keys:["data","analytic","analysis","sql","metric","measur","reporting","dashboard","statistic","excel","numbers","quantitat"],
+      area:"Analytical and data skills",
+      why:"Argue from evidence rather than instinct, and spot when the numbers are not saying what people claim.",
+      picks:[
+        ["Course","One structured course, with the time blocked in the calendar now"],
+        ["New project","Own one piece of analysis end to end, including the recommendation"],
+        ["Peer learning","Have an analyst review your work before it goes to anyone else"]
+      ],
+      support:"Review the first two analyses and push on the assumptions behind them.",
+      measure:"Produces the analysis behind a decision without needing it checked first." },
+
+    { keys:["commercial","business acumen","strategy","strategic","p&l","margin","revenue","pricing","finance","budget","cost"],
+      area:"Commercial and strategic judgement",
+      why:"Understand how the work connects to how the business actually makes money.",
+      picks:[
+        ["Job shadowing","Spend time with finance through a full planning cycle"],
+        ["Leadership exposure","Observe the quarterly business review before contributing to one"],
+        ["Stretch assignment","Build the business case for one piece of work, including what you would not do"]
+      ],
+      support:"Walk through the P&L behind their area, line by line, once.",
+      measure:"Frames proposals in terms of the commercial trade-off, unprompted." },
+
+    { keys:["cross-functional","cross functional","silo","other teams","breadth","end to end","end-to-end","different function","rotation","understand the business"],
+      area:"Cross-functional breadth",
+      why:"See the whole system rather than one part of it, so the handoffs stop being someone else's problem.",
+      picks:[
+        ["Cross-functional experience","A fixed stint embedded with a function you depend on"],
+        ["Job shadowing","Follow one piece of work all the way through, across every team it touches"],
+        ["New project","Join something where you are explicitly not the expert in the room"]
+      ],
+      support:"Broker the introduction and protect the time so it does not get squeezed out.",
+      measure:"Can explain how their work lands for the two teams downstream of it." },
+
+    { keys:["customer","client","user","account","service","stakeholder facing","front line","frontline","escalation"],
+      area:"Customer and client capability",
+      why:"Build the judgement to handle the account when it is not going well, not only when it is.",
+      picks:[
+        ["Job shadowing","Sit in on the next three escalations, then run the fourth"],
+        ["Stretch assignment","Own one account through a full renewal cycle"],
+        ["Mentoring","Pair with the person who keeps the hardest accounts happy"]
+      ],
+      support:"Attend the first two as backup, say nothing unless asked.",
+      measure:"Handles a live escalation end to end with the manager informed rather than involved." },
+
+    { keys:["writ","written","document","email","memo","communicat clear","clarity","concise","report"],
+      area:"Written communication",
+      why:"Write so the point survives being skim-read by someone who is busy.",
+      picks:[
+        ["Coaching","Have three real documents edited hard, with the reasons explained"],
+        ["Peer learning","Review each other's writing before anything goes out"],
+        ["Reading / resource","One book on structured writing, applied to the next real document"]
+      ],
+      support:"Edit the next three documents together rather than rewriting them alone.",
+      measure:"Documents go out after one round of edits instead of three." }
+  ];
+
+  function ldMatch(text){
+    var t = " " + String(text||"").toLowerCase().replace(/[’']/g,"") + " ";
+    var best = null, bestScore = 0;
+    LD_RULES.forEach(function(r){
+      var s = 0;
+      r.keys.forEach(function(k){ if(t.indexOf(k) > -1) s++; });
+      if(s > bestScore){ bestScore = s; best = r; }
+    });
+    return bestScore ? best : null;
+  }
+
+  function paintLD(ask){
+    var out = document.getElementById("ldOut");
+    if(!out) return;
+    var r = ldMatch(ask);
+
+    if(!r){
+      out.innerHTML = "<div class='limits' style='margin-top:14px;'>" +
+        "<strong>I don't have enough information to make that determination.</strong><br>" +
+        "Nothing you wrote matches anything I recognise, and guessing would waste your time. " +
+        "Try naming the skill directly &mdash; presenting, leading people, influence, difficult conversations, " +
+        "delegation, data, commercial judgement, working across teams, customers, writing &mdash; or add a plan " +
+        "yourself and write the activity in your own words.</div>";
+      return;
+    }
+
+    out.innerHTML =
+      "<div class='coach' style='margin-top:14px;'><strong>" + esc(r.area) + "</strong>" + esc(r.why) + "</div>" +
+      r.picks.map(function(p,i){
+        return "<div class='sugg' style='display:flex;gap:10px;justify-content:space-between;align-items:flex-start;margin-top:8px;'>" +
+          "<div><span class='badge b-cyan'>" + esc(p[0]) + "</span>" +
+          "<div style='margin-top:6px;'>" + esc(p[1]) + "</div></div>" +
+          "<button class='btn ghost sm' data-ldpick='" + i + "' style='flex:none;'>Use this</button></div>";
+      }).join("") +
+      "<div class='limits'>Fixed suggestions written by a person and matched on the words you typed. " +
+      "This has not read your goals, your feedback, or anything else in this app, and it does not know your " +
+      "situation. It is a starting point for the conversation, not an answer.</div>";
+
+    out.onclick = function(e){
+      var b = e.target.closest("[data-ldpick]");
+      if(!b) return;
+      var p = r.picks[parseInt(b.getAttribute("data-ldpick"),10)];
+      closeModal();
+      openDevModal(null, { area:r.area, why:r.why, type:p[0], activity:p[1],
+        support:r.support, measure:r.measure });
+    };
+  }
+
+  document.getElementById("ldRecommendBtn").addEventListener("click", function(){
+    openModal("Recommend learning & development",
+      "Say what you want to get better at. Nothing here runs unless you press the button.",
+      fArea("ldAsk", isMgr() ? "What should " + esc(data.people.employee) + " build?" : "What do you want to get better at?",
+        isMgr() ? "e.g. Presenting to senior stakeholders without losing the thread"
+                : "e.g. Being more convincing in front of senior stakeholders") +
+      "<div id='ldOut'></div>",
+      function(){
+        var ask = mv("ldAsk");
+        if(!ask){ document.getElementById("ldAsk").focus(); return; }
+        paintLD(ask);
+      }, "Suggest activities");
+  });
+
+  /* =====================================================================
+     THE PING
+
+     A toast always. A real desktop notification too, if the browser has
+     been given permission. Both only work while this page is open in a
+     tab — there is no server here to push anything when it is closed.
+     ===================================================================== */
+  function toast(title, text){
+    var wrap = document.getElementById("toastWrap");
+    if(!wrap) return;
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = "<span class='t-dot'></span><div style='flex:1;'><strong>" +
+      esc(title) + "</strong>" + esc(text) + "</div>";
+    var x = document.createElement("button");
+    x.className = "t-x";
+    x.type = "button";
+    x.textContent = "×";
+    x.setAttribute("aria-label","Dismiss");
+    x.onclick = function(){ el.remove(); };
+    el.appendChild(x);
+    wrap.appendChild(el);
+    setTimeout(function(){ if(el.parentNode) el.remove(); }, 7000);
+  }
+
+  function canPing(){ return typeof Notification !== "undefined"; }
+
+  function ping(title, text){
+    toast(title, text);
+    if(!canPing() || Notification.permission !== "granted") return false;
+    try{
+      var n = new Notification(title, { body:text, tag:"performance-pulse" });
+      n.onclick = function(){ window.focus(); n.close(); };
+      return true;
+    }catch(e){ return false; }
+  }
+
+  function paintPingState(){
+    var el = document.getElementById("pingState");
+    if(!el) return;
+    if(!canPing()){
+      el.innerHTML = "This browser doesn't offer desktop notifications. The in-app toast still works.";
+      return;
+    }
+    var p = Notification.permission;
+    el.innerHTML =
+      p === "granted"
+        ? "<strong>Desktop pings are on.</strong> They fire only while this page is open in a tab. " +
+          "Nothing can reach you once it's closed &mdash; that needs a server, and this file doesn't have one. " +
+          "The Slack path in SLACK.md is what fixes that."
+      : p === "denied"
+        ? "<strong>Your browser has blocked notifications for this page.</strong> Turn them back on in your " +
+          "browser's settings for this site, then reload. Opening the file directly from disk " +
+          "(a <code>file://</code> address) blocks them in some browsers no matter what you choose."
+      : "Not on yet &mdash; your browser will ask once. Toasts inside the app work either way.";
+  }
+
+  document.getElementById("pingEnable").addEventListener("click", function(){
+    if(!canPing()){ paintPingState(); return; }
+    try{
+      var r = Notification.requestPermission(function(){ paintPingState(); });
+      if(r && typeof r.then === "function") r.then(function(){ paintPingState(); });
+    }catch(e){ paintPingState(); }
+  });
+
+  document.getElementById("pingTest").addEventListener("click", function(){
+    var ok = ping("Performance Pulse", them() + " added a topic to your 1:1 agenda.");
+    if(!ok && canPing() && Notification.permission !== "granted"){
+      toast("Toast only", "Desktop pings aren't switched on, so this stayed inside the app.");
+    }
+    paintPingState();
+  });
+
+  /* Ping when something new lands for whoever is currently signed in.
+     Everything already on disk at load is marked seen, so opening the app
+     is never noisy. */
+  var pinged = {};
+  function pingNew(){
+    var fresh = myNotifications().filter(function(n){ return !n.read && !pinged[n.id]; });
+    if(!fresh.length) return;
+    fresh.forEach(function(n){ pinged[n.id] = true; });
+    ping(fresh.length === 1 ? "Performance Pulse" : fresh.length + " updates for you",
+      fresh.length === 1 ? fresh[0].text : fresh[0].text + " (and " + (fresh.length - 1) + " more)");
+  }
+
+  /* =====================================================================
+     SLACK BLOCK KIT
+
+     Real Block Kit. Paste any of these into Slack's Block Kit Builder and
+     it renders. Note what is deliberately absent: no topic text, no
+     feedback, no concern, no goal. Slack workspace admins can export DM
+     history, so a ping says only that something happened.
+     ===================================================================== */
+  var APP_URL = "https://example.com/performance-pulse";
+
+  function bkSection(md){ return { type:"section", text:{ type:"mrkdwn", text:md } }; }
+  function bkContext(md){ return { type:"context", elements:[{ type:"mrkdwn", text:md }] }; }
+  function bkHeader(){ return { type:"header", text:{ type:"plain_text", text:"Performance Pulse", emoji:true } }; }
+  function bkOpen(label){
+    return { type:"actions", elements:[
+      { type:"button", text:{ type:"plain_text", text:label || "Open Performance Pulse", emoji:true },
+        style:"primary", url:APP_URL, action_id:"open_app" }
+    ]};
+  }
+  function bkFoot(){
+    return bkContext(":lock: Nothing about your performance is in this message. The detail stays in the app, " +
+      "visible only to you and your manager.");
+  }
+
+  var BK_KINDS = [
+    { id:"topic",    label:"Topic added" },
+    { id:"upcoming", label:"1:1 coming up" },
+    { id:"feedback", label:"Feedback waiting" },
+    { id:"request",  label:"Feedback asked for" },
+    { id:"dev",      label:"Development plan" },
+    { id:"action",   label:"Action due" },
+    { id:"wrap",     label:"1:1 wrapped up" }
+  ];
+  var bkKind = "topic";
+
+  function blockKit(kind){
+    var openTopics = data.topics.filter(function(t){ return t.status !== "Resolved" && t.status !== "Parking Lot"; });
+    var when = data.next1on1.date
+      ? fmtDate(data.next1on1.date) + " at " + fmtTime(data.next1on1.time)
+      : "not in the diary yet";
+    var mine = data.actions.filter(function(a){
+      return a.status !== "Done" && (a.owner === me() || a.owner === "Both of us");
+    });
+    var b = [bkHeader()], text = "";
+
+    if(kind === "topic"){
+      text = them() + " added a topic to your 1:1 agenda";
+      b.push(bkSection("*" + them() + "* added a topic to your 1:1 agenda."));
+      b.push(bkContext(openTopics.length + " topic" + (openTopics.length === 1 ? "" : "s") +
+        " open  ·  Next 1:1 " + when));
+      b.push(bkOpen("See the agenda"));
+
+    } else if(kind === "upcoming"){
+      text = "Your 1:1 with " + them() + " is " + when;
+      b.push(bkSection("Your 1:1 with *" + them() + "* is *" + when + "*."));
+      b.push(bkContext(openTopics.length
+        ? openTopics.length + " topic" + (openTopics.length === 1 ? "" : "s") + " waiting  ·  Worth ten minutes of prep"
+        : "Nothing on the agenda yet"));
+      b.push(bkOpen("Prepare for it"));
+
+    } else if(kind === "feedback"){
+      text = them() + " left you feedback";
+      b.push(bkSection("*" + them() + "* left you feedback."));
+      b.push(bkContext("Read it when you have a quiet minute, not between meetings."));
+      b.push(bkOpen("Read it"));
+
+    } else if(kind === "request"){
+      text = them() + " asked you for feedback";
+      b.push(bkSection("*" + them() + "* asked you for feedback."));
+      b.push(bkContext("No deadline. Answer it whenever you're ready."));
+      b.push(bkOpen("Answer it"));
+
+    } else if(kind === "dev"){
+      text = them() + " added a development plan";
+      b.push(bkSection("*" + them() + "* " + (isMgr() ? "requested" : "recommended") + " a development plan for you."));
+      b.push(bkContext(data.development.length + " plan" + (data.development.length === 1 ? "" : "s") +
+        " in the workspace  ·  Nothing is agreed until you both say so"));
+      b.push(bkOpen("Take a look"));
+
+    } else if(kind === "action"){
+      text = mine.length + " action" + (mine.length === 1 ? "" : "s") + " assigned to you";
+      b.push(bkSection("You have *" + mine.length + " open action" + (mine.length === 1 ? "" : "s") + "* from your 1:1s."));
+      b.push(bkContext("Listed in the app with owners and dates. No nagging, no scores."));
+      b.push(bkOpen("See what's open"));
+
+    } else {
+      text = "Your 1:1 with " + them() + " is wrapped up";
+      b.push(bkSection("Your 1:1 with *" + them() + "* is wrapped up."));
+      b.push(bkContext("What you discussed, what you agreed, and who owns what — all written down."));
+      b.push(bkOpen("Read the summary"));
+    }
+
+    b.push({ type:"divider" });
+    b.push(bkFoot());
+    return { text:text, blocks:b };
+  }
+
+  function paintBlockKit(){
+    var pick = document.getElementById("bkPicker");
+    if(!pick) return;
+    pick.innerHTML = BK_KINDS.map(function(k){
+      return "<button class='chip" + (k.id === bkKind ? " active" : "") + "' data-bk='" + k.id + "'>" +
+        esc(k.label) + "</button>";
+    }).join("");
+    var k = BK_KINDS.filter(function(x){ return x.id === bkKind; })[0] || BK_KINDS[0];
+    document.getElementById("bkLabel").textContent =
+      "Sent to " + (data.role === "manager" ? data.people.manager : data.people.employee) + " · " + k.label;
+    document.getElementById("bkJson").textContent = JSON.stringify(blockKit(bkKind), null, 2);
+  }
+
+  document.getElementById("bkPicker").addEventListener("click", function(e){
+    var b = e.target.closest("[data-bk]");
+    if(!b) return;
+    bkKind = b.getAttribute("data-bk");
+    paintBlockKit();
+  });
+
+  document.getElementById("bkCopy").addEventListener("click", function(){
+    var json = document.getElementById("bkJson").textContent;
+    function done(ok){
+      toast(ok ? "Copied" : "Couldn't copy",
+        ok ? "Paste it into Slack's Block Kit Builder to see it render."
+           : "Select the JSON and copy it by hand — the browser blocked the clipboard.");
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(json).then(function(){ done(true); }, function(){ done(false); });
+    } else {
+      done(false);
+    }
+  });
+
+  document.getElementById("bkOpen").addEventListener("click", function(){
+    window.open("https://app.slack.com/block-kit-builder", "_blank", "noopener");
   });
 
   /* =====================================================================
@@ -2803,9 +3311,14 @@
 
     if(current === "history") renderHistory();
     if(current === "export") paintMeetingPicker();
+
+    document.getElementById("assistToggle").checked = assistOn();
+    if(current === "slack"){ paintBlockKit(); paintPingState(); }
+    pingNew();
   }
 
-  /* seed the wrap-up date field once */
+  /* Everything already on disk counts as seen, so opening the app never pings. */
+  data.notifications.forEach(function(n){ pinged[n.id] = true; });
   show("dashboard");
 })();
 </script>

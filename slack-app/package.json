@@ -1,0 +1,18 @@
+{
+  "name": "performance-pulse-slack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slack app for Performance Pulse. Block Kit pings that deliberately carry no performance content.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "preview": "node preview.js",
+    "check": "node --check app.js && node --check blocks.js && node --check preview.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.2.1"
+  }
+}

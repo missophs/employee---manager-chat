@@ -2,3 +2,6 @@
 *.doc
 *.pdf
 performance-pulse-data-*.json
+node_modules/
+.env
+*.log

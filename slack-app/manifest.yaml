@@ -1,0 +1,33 @@
+display_information:
+  name: Performance Pulse
+  description: Private 1:1 and performance notes. Tells you something happened, never what it says.
+  background_color: "#2c2a4a"
+features:
+  bot_user:
+    display_name: Performance Pulse
+    always_online: true
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  slash_commands:
+    - command: /pulse
+      description: Send yourself a test ping
+      usage_hint: topic, upcoming, feedback, request, development, action, wrap
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - im:write
+      - users:read
+      - commands
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_home_opened
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
