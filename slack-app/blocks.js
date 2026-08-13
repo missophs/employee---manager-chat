@@ -11,7 +11,7 @@
  * If you add a ping, keep that rule. It is the product's main promise.
  */
 
-const APP_URL = process.env.APP_URL || "https://example.com/performance-pulse";
+const APP_URL = process.env.APP_URL || "https://missophs.github.io/employee---manager-chat/";
 
 /* ---------- small builders ---------- */
 

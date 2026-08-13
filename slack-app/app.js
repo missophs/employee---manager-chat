@@ -17,6 +17,8 @@
  * happened, and links back to the app where the substance lives.
  */
 
+require("dotenv").config();
+
 const { App } = require("@slack/bolt");
 const { build, PINGS, homeTab, addTopicModal } = require("./blocks");
 

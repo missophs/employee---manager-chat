@@ -13,6 +13,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@slack/bolt": "^4.2.1"
+    "@slack/bolt": "^4.2.1",
+    "dotenv": "^17.4.2"
   }
 }
