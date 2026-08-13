@@ -68,19 +68,26 @@ function ping({ fallback, line, meta, button }) {
 
 /* ---------- the seven pings ---------- */
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n, word) => {
+  const count = Number.isFinite(n) ? n : 0;
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+};
+
+/* A ping with a missing name would render "*undefined* left you feedback".
+   Fall back to something neutral rather than showing that to a person. */
+const who = (name) => (typeof name === "string" && name.trim()) || "Someone";
 
 const PINGS = {
   topic: ({ from, openTopics = 0, when = "not in the diary yet" }) => ping({
-    fallback: `${from} added a topic to your 1:1 agenda`,
-    line: `*${from}* added a topic to your 1:1 agenda.`,
+    fallback: `${who(from)} added a topic to your 1:1 agenda`,
+    line: `*${who(from)}* added a topic to your 1:1 agenda.`,
     meta: `${plural(openTopics, "topic")} open  ·  Next 1:1 ${when}`,
     button: "See the agenda"
   }),
 
-  upcoming: ({ from, openTopics = 0, when }) => ping({
-    fallback: `Your 1:1 with ${from} is ${when}`,
-    line: `Your 1:1 with *${from}* is *${when}*.`,
+  upcoming: ({ from, openTopics = 0, when = "not in the diary yet" }) => ping({
+    fallback: `Your 1:1 with ${who(from)} is ${when}`,
+    line: `Your 1:1 with *${who(from)}* is *${when}*.`,
     meta: openTopics
       ? `${plural(openTopics, "topic")} waiting  ·  Worth ten minutes of prep`
       : "Nothing on the agenda yet",
@@ -88,22 +95,22 @@ const PINGS = {
   }),
 
   feedback: ({ from }) => ping({
-    fallback: `${from} left you feedback`,
-    line: `*${from}* left you feedback.`,
+    fallback: `${who(from)} left you feedback`,
+    line: `*${who(from)}* left you feedback.`,
     meta: "Read it when you have a quiet minute, not between meetings.",
     button: "Read it"
   }),
 
   request: ({ from }) => ping({
-    fallback: `${from} asked you for feedback`,
-    line: `*${from}* asked you for feedback.`,
+    fallback: `${who(from)} asked you for feedback`,
+    line: `*${who(from)}* asked you for feedback.`,
     meta: "No deadline. Answer it whenever you're ready.",
     button: "Answer it"
   }),
 
   development: ({ from, plans = 0, direction = "recommended" }) => ping({
-    fallback: `${from} added a development plan`,
-    line: `*${from}* ${direction} a development plan for you.`,
+    fallback: `${who(from)} added a development plan`,
+    line: `*${who(from)}* ${direction} a development plan for you.`,
     meta: `${plural(plans, "plan")} in the workspace  ·  Nothing is agreed until you both say so`,
     button: "Take a look"
   }),
@@ -116,8 +123,8 @@ const PINGS = {
   }),
 
   wrap: ({ from }) => ping({
-    fallback: `Your 1:1 with ${from} is wrapped up`,
-    line: `Your 1:1 with *${from}* is wrapped up.`,
+    fallback: `Your 1:1 with ${who(from)} is wrapped up`,
+    line: `Your 1:1 with *${who(from)}* is wrapped up.`,
     meta: "What you discussed, what you agreed, and who owns what — all written down.",
     button: "Read the summary"
   })
@@ -131,7 +138,9 @@ const PINGS = {
 function build(kind, data = {}) {
   const make = PINGS[kind];
   if (!make) throw new Error(`Unknown ping: ${kind}. Known: ${Object.keys(PINGS).join(", ")}`);
-  return make(data);
+  /* Every builder destructures its argument, so an explicit null would throw
+     a TypeError rather than the clear error above. */
+  return make(data || {});
 }
 
 /* ---------- App Home: a Block Kit surface, not a message ---------- */

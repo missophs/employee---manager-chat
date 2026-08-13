@@ -11,6 +11,9 @@
  * to watch it render.
  */
 
+/* Load .env so the preview shows the same APP_URL the real messages carry. */
+require("dotenv").config();
+
 const { build, PINGS, homeTab, addTopicModal } = require("./blocks");
 
 const SAMPLE = {

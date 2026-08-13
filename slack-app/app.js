@@ -27,14 +27,33 @@ const { build, PINGS, homeTab, addTopicModal } = require("./blocks");
 const BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const APP_TOKEN = process.env.SLACK_APP_TOKEN;
 
-if (!BOT_TOKEN || !APP_TOKEN) {
+/* The bot token is the one that cannot be worked around: without it nothing
+   can be sent at all. The app-level token is only needed to RECEIVE — button
+   clicks, modal submits, slash commands. Sending the Home tab and the pings
+   works on the bot token alone, so a missing app token degrades the app
+   rather than killing it. */
+
+if (!BOT_TOKEN) {
   console.error(
-    "\nMissing tokens.\n\n" +
-    "  SLACK_BOT_TOKEN  starts with xoxb-   (OAuth & Permissions page)\n" +
-    "  SLACK_APP_TOKEN  starts with xapp-   (Basic Information → App-Level Tokens,\n" +
-    "                                        needs the connections:write scope)\n\n" +
-    "Copy .env.example to .env, paste both in, then run npm start again.\n" +
+    "\nMissing SLACK_BOT_TOKEN — starts with xoxb-, from the OAuth & Permissions page.\n\n" +
+    "Copy .env.example to .env, paste it in, then run npm start again.\n" +
     "To see the Block Kit layouts without any of this, run: npm run preview\n"
+  );
+  process.exit(1);
+}
+
+/* Bolt throws while being constructed if socketMode is on without an app
+   token, so this has to be checked before the App below is built — not at
+   start() time. */
+if (!APP_TOKEN) {
+  console.error(
+    "\nMissing SLACK_APP_TOKEN, so Slack cannot send anything back: buttons,\n" +
+    "the modal and /pulse need it. Generate one at Basic Information →\n" +
+    "App-Level Tokens with the connections:write scope.\n\n" +
+    "Sending does not need it. These work on the bot token alone:\n\n" +
+    "  node push-home.js    publish the Home tab\n" +
+    "  node send-all.js     send one of every ping\n" +
+    "  npm run preview      print the Block Kit JSON, no Slack at all\n"
   );
   process.exit(1);
 }
@@ -110,11 +129,22 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
 });
 
 app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
-  await ack();
   const values = view.state.values;
   const text = values.topic?.text?.value?.trim();
   const category = values.category?.value?.selected_option?.value;
-  if (!text) return;
+
+  /* Validate before acknowledging. Slack only accepts an error response on
+     the first ack, so a blank submission has to be caught here or it closes
+     the modal and silently discards what was typed. */
+  if (!text) {
+    await ack({
+      response_action: "errors",
+      errors: { topic: "Add a few words about what you want to discuss." }
+    });
+    return;
+  }
+
+  await ack();
 
   state.topics.push({ text, category, by: body.user.id, at: new Date().toISOString() });
 
@@ -129,14 +159,21 @@ app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
 
     /* Ping the other person. This is the route: whoever added the topic, the
        counterpart hears about it — employee to manager and manager back the
-       other way. The ping carries the count and the date, never the text. */
+       other way. The ping carries the count and the date, never the text.
+
+       Kept in its own try: if the counterpart cannot be reached, that must not
+       cost the author the confirmation of their own topic below. */
     const other = counterpartOf(body.user.id);
     if (other) {
-      await notify(other, "topic", {
-        from: name,
-        openTopics: state.topics.filter((t) => t.by === body.user.id).length,
-        when: "not in the diary yet"
-      });
+      try {
+        await notify(other, "topic", {
+          from: name,
+          openTopics: state.topics.filter((t) => t.by === body.user.id).length,
+          when: "not in the diary yet"
+        });
+      } catch (error) {
+        logger.error("Could not notify the counterpart:", error);
+      }
     }
 
     /* Confirm to the person who added it. Their own text is theirs to see. */
@@ -214,11 +251,28 @@ async function notify(userId, kind, data = {}) {
 
 /* ---------- go ---------- */
 
-(async () => {
+async function start() {
   await app.start();
   console.log("Performance Pulse is connected to Slack.");
   console.log("Try /pulse in any channel, or click the app in your sidebar for the Home tab.");
   console.log(`Pings available: ${Object.keys(PINGS).join(", ")}`);
-})();
+}
+
+/* Only connect when run directly. Importing this file for notify() must not
+   open a socket as a side effect. */
+if (require.main === module) {
+  start().catch((error) => {
+    const reason = error?.data?.error || error?.message || String(error);
+    console.error(`\nCould not connect to Slack: ${reason}`);
+    if (reason === "invalid_auth") {
+      console.error(
+        "That is the app-level token. Regenerate it at Basic Information →\n" +
+        "App-Level Tokens with the connections:write scope, and check that\n" +
+        "Socket Mode is switched on.\n"
+      );
+    }
+    process.exit(1);
+  });
+}
 
 module.exports = { app, notify };
