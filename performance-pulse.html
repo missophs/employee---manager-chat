@@ -293,6 +293,43 @@
   }
   .privacy-banner strong{color:#d1fae5;}
 
+  /* ---------- Notification bell ---------- */
+  .bell{
+    position:relative;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);
+    color:#fff;width:38px;height:38px;border-radius:11px;cursor:pointer;font-size:16px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .bell:hover{background:rgba(255,255,255,.16);}
+  .bell:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+  .bell .count{
+    position:absolute;top:-6px;right:-6px;background:var(--accent2);color:#fff;
+    font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;
+    box-shadow:0 2px 6px rgba(236,72,153,.5);
+  }
+  .notif-scroll{max-height:400px;overflow-y:auto;}
+  .notif.actionable{cursor:pointer;}
+  .notif.actionable:hover{background:var(--card-2);}
+
+  /* ---------- Suggestions ---------- */
+  .sugg-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .sugg-list{display:flex;flex-direction:column;gap:7px;}
+  .sugg{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--card-2);border:1px solid var(--border);border-radius:11px;
+    padding:10px 13px;font-size:13px;line-height:1.45;
+  }
+  .sugg .txt{min-width:0;}
+  .sugg .who{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-top:3px;}
+  .sugg button{flex-shrink:0;}
+  .sugg.custom{background:#fdf4ff;border-color:#f0abfc;}
+
+  /* ---------- Honesty note ---------- */
+  .limits{
+    border:1px dashed var(--border);border-radius:12px;padding:11px 14px;margin-top:12px;
+    font-size:12px;color:var(--muted);line-height:1.5;
+  }
+
   .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px;margin-top:8px;}
   .kv dt{color:var(--faint);font-weight:600;}
   .kv dd{margin:0;color:var(--text);}
@@ -367,6 +404,9 @@
           <button class="role-btn" id="roleEmp" data-role="employee">Employee</button>
           <button class="role-btn" id="roleMgr" data-role="manager">Manager</button>
         </div>
+        <button class="bell" id="bellBtn" aria-label="Notifications" title="Notifications">
+          &#9679;<span class="count" id="bellCount" style="display:none;">0</span>
+        </button>
         <div class="avatar" id="whoAvatar">MR</div>
         <div class="who" id="whoName"></div>
       </div>
@@ -472,6 +512,24 @@
 
         <div class="step">
           <div class="step-head"><div class="step-num">2</div>
+            <div><span class="kicker">Prepare</span><h3>Suggested questions</h3></div>
+          </div>
+          <p class="card-note" id="suggNote"></p>
+          <div class="sugg-cats" id="suggCats"></div>
+          <div class="sugg-list" id="suggList"></div>
+          <div class="btn-row" style="margin-top:14px;">
+            <button class="btn secondary sm" id="addOwnSuggBtn">Write my own suggestion</button>
+            <button class="btn ghost sm" id="hardConvoBtn">Help me prepare a hard conversation</button>
+          </div>
+          <div class="limits">
+            These are conversation starters, not a script &mdash; and they're a fixed list, not a
+            model reading your situation. Pick what fits, ignore what doesn't, and write your own
+            for anything this list doesn't know about.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><div class="step-num">3</div>
             <div><span class="kicker">Prepare</span><h3>Add something to discuss</h3></div>
           </div>
           <p class="card-note">Both of you can add topics before the meeting. The other person sees them right away.</p>
@@ -566,8 +624,12 @@
       <div class="subview" id="sub-feedback">
         <div class="card">
           <div class="card-head"><h2>Feedback</h2>
-            <button class="btn sm" id="addFeedbackBtn">Give feedback</button></div>
+            <div class="btn-row">
+              <button class="btn ghost sm" id="requestFeedbackBtn">Ask for feedback</button>
+              <button class="btn sm" id="addFeedbackBtn">Give feedback</button>
+            </div></div>
           <p class="card-note" id="feedbackNote"></p>
+          <div id="feedbackRequests"></div>
           <div id="feedbackList"></div>
         </div>
       </div>
@@ -690,6 +752,7 @@
         <div id="exportOptions">
           <label class="checkline"><input type="checkbox" data-ex="current1on1" checked> Current 1:1 (agenda and prep)</label>
           <label class="checkline"><input type="checkbox" data-ex="past1on1s"> Past 1:1 summaries</label>
+          <div id="pastMeetingPicker" style="display:none;margin:2px 0 10px 26px;padding-left:12px;border-left:2px solid var(--border);"></div>
           <label class="checkline"><input type="checkbox" data-ex="goals" checked> Goals</label>
           <label class="checkline"><input type="checkbox" data-ex="development"> Development plan</label>
           <label class="checkline"><input type="checkbox" data-ex="performance"> Performance summary (achievements &amp; feedback)</label>
@@ -745,7 +808,8 @@
       next1on1:{ date:"", time:"10:00", focus:"Workload, the customer rollout, and where you want support." },
       topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
       goals:[], development:[], career:[], concerns:[], actions:[],
-      notifications:[], reviewDrafts:{ employee:"", manager:"" }
+      notifications:[], reviewDrafts:{ employee:"", manager:"" },
+      feedbackRequests:[], customSuggestions:[]
     };
   }
 
@@ -804,14 +868,58 @@
   function them(){ return data.role === "manager" ? data.people.employee : data.people.manager; }
   function isMgr(){ return data.role === "manager"; }
 
-  function notify(text){
-    data.notifications.unshift({ id:uid(), text:text, by:me(), read:false, at:now() });
-    if(data.notifications.length > 60) data.notifications.length = 60;
+  /* Notifications are addressed to whoever did NOT do the thing, so you are never
+     alerted about your own actions. `to` is "employee", "manager" or "both". */
+  function notify(text, to, view){
+    data.notifications.unshift({
+      id:uid(), text:text, by:me(), to:to || other(), view:view || null,
+      read:false, at:now()
+    });
+    if(data.notifications.length > 80) data.notifications.length = 80;
   }
-  function commit(text){
-    if(text) notify(text);
+  function other(){ return data.role === "manager" ? "employee" : "manager"; }
+
+  function commit(text, to, view){
+    if(text) notify(text, to, view);
     save();
     render();
+  }
+
+  /* Stored notifications addressed to the current role. */
+  function myNotifications(){
+    return data.notifications.filter(function(n){
+      return n.to === data.role || n.to === "both";
+    });
+  }
+
+  /* Live reminders — recomputed each render, never stored, so they can't go stale. */
+  function reminders(){
+    var out = [];
+    data.actions.forEach(function(a){
+      if(a.status === "Done") return;
+      if(!(a.owner === me() || a.owner === "Both of us")) return;
+      if(!a.due) return;
+      var days = daysBetween(new Date(today()+"T00:00:00").getTime(), new Date(a.due+"T00:00:00").getTime());
+      if(days < 0) out.push({ text:"Past due: " + a.text, sub:Math.abs(days) + " day" + (Math.abs(days)===1?"":"s") + " ago", view:"actions", tone:"late" });
+      else if(days <= 3) out.push({ text:"Due " + (days === 0 ? "today" : days === 1 ? "tomorrow" : "in " + days + " days") + ": " + a.text, sub:"Assigned to you", view:"actions", tone:"soon" });
+    });
+    data.goals.forEach(function(g){
+      if(staleGoal(g)) out.push({ text:"No update in three weeks: " + g.text, sub:"Worth raising at your next 1:1", view:"goals", tone:"soon" });
+    });
+    if(data.next1on1.date){
+      var d = daysBetween(new Date(today()+"T00:00:00").getTime(), new Date(data.next1on1.date+"T00:00:00").getTime());
+      if(d >= 0 && d <= 2){
+        var openT = data.topics.filter(function(t){ return t.status !== "Resolved" && t.status !== "Parking Lot"; }).length;
+        out.push({ text:"Your 1:1 is " + (d === 0 ? "today" : d === 1 ? "tomorrow" : "in 2 days"),
+          sub:openT ? openT + " topic" + (openT===1?"":"s") + " on the agenda" : "Nothing on the agenda yet", view:"oneOnOne", tone:"soon" });
+      }
+    }
+    data.feedbackRequests.forEach(function(r){
+      if(r.status === "open" && r.to === data.role){
+        out.push({ text:(r.fromName) + " asked you for feedback", sub:r.about || "No particular topic given", view:"performance", tone:"soon" });
+      }
+    });
+    return out;
   }
 
   /* =====================================================================
@@ -940,6 +1048,226 @@
     var t = (text||"").toLowerCase();
     return words.some(function(w){ return t.indexOf(w) > -1; });
   }
+
+  /* =====================================================================
+     SUGGESTED QUESTIONS
+     A fixed library, not a model. Both roles get their own set, and either
+     person can save their own for reuse.
+     ===================================================================== */
+  var SUGGESTIONS = {
+    employee:{
+      "Wins":[
+        "Can I walk you through how the last project actually went?",
+        "Here's something that went better than I expected — can I share it?",
+        "What did you hear about how that landed with other people?"
+      ],
+      "Priorities":[
+        "Of everything on my plate, what matters most to you this month?",
+        "If I could only finish two things this week, which two would you pick?",
+        "Has anything changed in what you need from me?"
+      ],
+      "Roadblocks":[
+        "I'm stuck on this — can we think through the options together?",
+        "What's the fastest way to unblock this?",
+        "Who else do I need to bring into this, and can you make the introduction?"
+      ],
+      "Workload":[
+        "I'm at capacity. Can we look at what comes off the list?",
+        "Does the current pace look sustainable from where you sit?",
+        "I want to flag that I'm at risk of missing something — can we reprioritise?"
+      ],
+      "Feedback":[
+        "What's one thing I could do differently?",
+        "Where do you think I'm strongest right now?",
+        "Is there anything you've been meaning to tell me and haven't?"
+      ],
+      "Recognition":[
+        "I want to flag what someone else did on this — can I tell you about it?",
+        "Can we make sure the team's work on this gets seen?"
+      ],
+      "Career":[
+        "What would it take to move toward the kind of role I want?",
+        "What experience am I missing for the next step?",
+        "Is the path I'm imagining realistic from where you sit?"
+      ],
+      "Development":[
+        "Could I take the lead on something to build that skill?",
+        "What skill would make the biggest difference to my work this year?",
+        "Is there a project coming up that would stretch me?"
+      ],
+      "Support needed":[
+        "Here's specifically what I need from you on this.",
+        "Can you help unblock this with another team?",
+        "I'd like more context on decisions before they land — is that possible?"
+      ],
+      "Questions":[
+        "What's changing that I should know about?",
+        "How is our team's work being seen right now?",
+        "What are you worried about that I could help with?"
+      ]
+    },
+    manager:{
+      "Wins":[
+        "What went better than you expected recently?",
+        "What are you proudest of this month?",
+        "What's working that we should do more of?"
+      ],
+      "Priorities":[
+        "What are you focused on this week?",
+        "Is anything on your list that shouldn't be?",
+        "Are my priorities and yours actually the same right now?"
+      ],
+      "Roadblocks":[
+        "What's slowing you down that I could remove?",
+        "Where are you waiting on someone else?",
+        "What have you given up asking for?"
+      ],
+      "Workload":[
+        "How is your workload actually feeling — not the tidy answer?",
+        "What would you drop if you could?",
+        "Are you working hours you don't want to be working?"
+      ],
+      "Feedback":[
+        "What feedback would be most useful to you right now?",
+        "How am I doing at supporting you?",
+        "What do you wish I did differently as your manager?"
+      ],
+      "Recognition":[
+        "Whose contribution here deserves more credit than it got?",
+        "How do you like being recognised — publicly, privately, or not at all?"
+      ],
+      "Career":[
+        "Where do you want to be in two years?",
+        "What kind of work do you want more of?",
+        "Is there a part of your job you'd happily never do again?"
+      ],
+      "Development":[
+        "What skill do you want to build next?",
+        "What would stretch you in a good way rather than a stressful one?",
+        "Is there someone here you'd like to learn from?"
+      ],
+      "Team issues":[
+        "How is the team working together right now?",
+        "Is anything getting in the way between people?",
+        "Is there a conversation the team is avoiding?"
+      ],
+      "Support needed":[
+        "What do you need from me that you're not getting?",
+        "What decision are you waiting on me for?",
+        "Where am I in your way?"
+      ]
+    }
+  };
+
+  var suggCat = null;
+
+  function suggCategories(){
+    var base = Object.keys(SUGGESTIONS[data.role]);
+    if(data.customSuggestions.some(function(s){ return s.role === data.role; })) base.push("My own");
+    return base;
+  }
+
+  function renderSuggestions(){
+    var cats = suggCategories();
+    if(!suggCat || cats.indexOf(suggCat) === -1) suggCat = cats[0];
+
+    document.getElementById("suggNote").textContent = isMgr()
+      ? "Questions that tend to open a conversation up rather than close it down. Tap one to put it on the agenda for " + data.people.employee + " to see."
+      : "Things worth asking your manager. Tap one to put it on the agenda so " + data.people.manager + " sees it before you meet.";
+
+    document.getElementById("suggCats").innerHTML = cats.map(function(c){
+      return "<button class='chip" + (c === suggCat ? " active" : "") + "' data-suggcat='" + esc(c) + "'>" + esc(c) + "</button>";
+    }).join("");
+
+    var items;
+    if(suggCat === "My own"){
+      items = data.customSuggestions.filter(function(s){ return s.role === data.role; })
+        .map(function(s){ return { text:s.text, custom:true, id:s.id, cat:s.cat }; });
+    } else {
+      items = (SUGGESTIONS[data.role][suggCat] || []).map(function(t){ return { text:t, custom:false, cat:suggCat }; });
+    }
+
+    document.getElementById("suggList").innerHTML = items.length
+      ? items.map(function(s,i){
+          return "<div class='sugg" + (s.custom ? " custom" : "") + "'>" +
+            "<div class='txt'>" + esc(s.text) +
+            (s.custom ? "<div class='who'>Your own &middot; " + esc(s.cat) + "</div>" : "") + "</div>" +
+            "<div class='btn-row'>" +
+            "<button class='btn sm' data-suggadd='" + i + "'>Add</button>" +
+            (s.custom ? "<button class='btn ghost sm' data-suggdel='" + s.id + "'>Remove</button>" : "") +
+            "</div></div>";
+        }).join("")
+      : "<div class='empty'><div class='big'>Nothing saved yet</div>Write your own suggestion below and it'll live here.</div>";
+
+    document.getElementById("suggList").dataset.items = JSON.stringify(items);
+  }
+
+  document.getElementById("suggCats").addEventListener("click", function(e){
+    var c = e.target.closest("[data-suggcat]");
+    if(!c) return;
+    suggCat = c.getAttribute("data-suggcat");
+    renderSuggestions();
+  });
+
+  document.getElementById("suggList").addEventListener("click", function(e){
+    var add = e.target.closest("[data-suggadd]"), del = e.target.closest("[data-suggdel]");
+    if(add){
+      var items = JSON.parse(document.getElementById("suggList").dataset.items || "[]");
+      var s = items[parseInt(add.getAttribute("data-suggadd"),10)];
+      if(!s) return;
+      var cat = s.cat === "My own" ? "Other" : s.cat;
+      data.topics.push({ id:uid(), text:s.text, why:"", cat:cat,
+        by:data.role, byName:me(), status:"open", notes:"", at:now() });
+      commit(me() + " added a topic: " + s.text, other(), "oneOnOne");
+    }
+    if(del){
+      var id = del.getAttribute("data-suggdel");
+      var i = data.customSuggestions.findIndex(function(x){ return x.id === id; });
+      if(i > -1){ data.customSuggestions.splice(i,1); save(); renderSuggestions(); }
+    }
+  });
+
+  document.getElementById("addOwnSuggBtn").addEventListener("click", function(){
+    openModal("Write your own suggestion",
+      "Saved to your own list so you can reuse it in future conversations. Only you see your saved suggestions.",
+      fArea("myS","The question or topic","Something you want to remember to raise.") +
+      fSelect("mySCat","File it under", Object.keys(SUGGESTIONS[data.role]).concat(["Other"]), "Feedback"),
+      function(){
+        var t = mv("myS");
+        if(!t){ document.getElementById("myS").focus(); return; }
+        data.customSuggestions.push({ id:uid(), role:data.role, text:t, cat:mv("mySCat"), at:now() });
+        suggCat = "My own";
+        closeModal();
+        save();
+        render();
+      }, "Save suggestion");
+  });
+
+  /* ---------- Difficult conversation prep ---------- */
+  document.getElementById("hardConvoBtn").addEventListener("click", function(){
+    openModal("Prepare a hard conversation",
+      "Four questions that tend to make a difficult conversation go better. Your answers become a private topic on the agenda.",
+      fArea("hcOutcome","What outcome do you actually want?","Not how you want them to feel — what you want to be different afterwards.") +
+      fArea("hcFacts","What are the facts, without interpretation?","What happened and when. Leave out why you think they did it.") +
+      fArea("hcTheirView","How might they see this?","Their side, argued as well as you can argue it.") +
+      fArea("hcAsk","What are you asking for?","The specific, concrete request.") +
+      "<div class='limits' style='margin-top:4px;'>This won't tell you whether you're right, and it doesn't know your situation. " +
+      "It's four prompts that slow the conversation down.</div>",
+      function(){
+        var outcome = mv("hcOutcome");
+        if(!outcome){ document.getElementById("hcOutcome").focus(); return; }
+        var body = [
+          "Outcome I want: " + outcome,
+          mv("hcFacts") && "The facts: " + mv("hcFacts"),
+          mv("hcTheirView") && "How they might see it: " + mv("hcTheirView"),
+          mv("hcAsk") && "What I'm asking for: " + mv("hcAsk")
+        ].filter(Boolean).join("\n");
+        data.topics.push({ id:uid(), text:outcome, why:body, cat:"Other",
+          by:data.role, byName:me(), status:"open", notes:"", at:now() });
+        closeModal();
+        commit(me() + " added a topic to the agenda", other(), "oneOnOne");
+      }, "Add to agenda");
+  });
 
   /* =====================================================================
      CHECK-IN
@@ -1111,7 +1439,7 @@
       status:"open", notes:"", at:now()
     });
     t.value = ""; document.getElementById("topicWhy").value = "";
-    commit(me() + " added a topic: " + text);
+    commit(me() + " added a topic: " + text, other(), "oneOnOne");
   });
 
   function renderTopicList(el, items, opts){
@@ -1278,12 +1606,73 @@
           data.feedback.unshift({ id:uid(), dir:data.role, from:me(), to:them(),
             type:mv("fbType"), text:text, example:mv("fbExample"), at:now() });
           closeModal();
-          commit(me() + " gave feedback to " + them());
+          commit(me() + " gave you feedback", other(), "performance");
         }
       }, "Send feedback");
   });
 
+  /* ---------- Requesting feedback ---------- */
+  document.getElementById("requestFeedbackBtn").addEventListener("click", function(){
+    openModal("Ask " + esc(them()) + " for feedback",
+      "They'll see the request and can answer it whenever they're ready.",
+      fText("frAbout","What do you want feedback on?","e.g. How I handled the Northwind escalation") +
+      fArea("frWhy","Anything that would help them answer","Context, what you're unsure about, what would be most useful."),
+      function(){
+        var about = mv("frAbout");
+        if(!about){ document.getElementById("frAbout").focus(); return; }
+        data.feedbackRequests.unshift({ id:uid(), from:data.role, fromName:me(), to:other(),
+          about:about, why:mv("frWhy"), status:"open", at:now() });
+        closeModal();
+        commit(me() + " asked you for feedback", other(), "performance");
+      }, "Send request");
+  });
+
+  function renderFeedbackRequests(){
+    var el = document.getElementById("feedbackRequests");
+    var open = data.feedbackRequests.filter(function(r){ return r.status === "open"; });
+    if(!open.length){ el.innerHTML = ""; return; }
+    el.innerHTML = open.map(function(r){
+      var forMe = r.to === data.role;
+      return "<div class='nudge' style='margin-bottom:10px;'>" +
+        "<div><strong>" + (forMe ? esc(r.fromName) + " asked you for feedback" : "You asked " + esc(them()) + " for feedback") + "</strong>" +
+        "<div style='margin-top:3px;'>" + esc(r.about) + "</div>" +
+        (r.why ? "<div style='margin-top:3px;font-size:12px;'>" + nl2br(r.why) + "</div>" : "") + "</div>" +
+        "<div class='btn-row'>" +
+        (forMe ? "<button class='btn sm' data-franswer='" + r.id + "'>Answer</button>" : "") +
+        "<button class='btn ghost sm' data-frclose='" + r.id + "'>" + (forMe ? "Dismiss" : "Withdraw") + "</button>" +
+        "</div></div>";
+    }).join("");
+  }
+
+  document.getElementById("feedbackRequests").addEventListener("click", function(e){
+    var ans = e.target.closest("[data-franswer]"), cls = e.target.closest("[data-frclose]");
+    if(cls){
+      var r = data.feedbackRequests.find(function(x){ return x.id === cls.getAttribute("data-frclose"); });
+      if(r){ r.status = "closed"; commit(null); }
+    }
+    if(ans){
+      var req = data.feedbackRequests.find(function(x){ return x.id === ans.getAttribute("data-franswer"); });
+      if(!req) return;
+      var types = isMgr() ? MGR_FB : EMP_FB;
+      openModal("Answer: " + esc(req.about),
+        "They asked for this, so be as concrete as you can.",
+        fSelect("fbType","Type",types,types[0]) +
+        fArea("fbText","Your answer","") +
+        fArea("fbExample","A specific example","What happened, and when."),
+        function(){
+          var text = mv("fbText");
+          if(!text){ document.getElementById("fbText").focus(); return; }
+          data.feedback.unshift({ id:uid(), dir:data.role, from:me(), to:them(),
+            type:mv("fbType"), text:text, example:mv("fbExample"), at:now() });
+          req.status = "closed";
+          closeModal();
+          commit(me() + " answered your feedback request", other(), "performance");
+        }, "Send feedback");
+    }
+  });
+
   function renderFeedback(){
+    renderFeedbackRequests();
     document.getElementById("feedbackNote").textContent = isMgr()
       ? "Feedback runs both ways here. What you write is visible to " + data.people.employee + " straight away."
       : "You can give your manager feedback too. What you write is visible to " + data.people.manager + " straight away.";
@@ -1416,7 +1805,7 @@
           payload.id = uid(); payload.at = now(); payload.byName = me();
           data.goals.unshift(payload);
           closeModal();
-          commit(me() + " added a goal: " + text);
+          commit(me() + " added a goal: " + text, other(), "goals");
         }
       }, existing ? "Save changes" : "Add goal");
 
@@ -1488,6 +1877,24 @@
     "Leadership exposure","Cross-functional experience"];
   var DEV_STATES = ["Not Started","In Progress","Complete","Deferred"];
 
+  /* Activity ideas per development type — a fixed list to get people unstuck,
+     not a recommendation engine. */
+  var DEV_IDEAS = {
+    "Course":["Pick one course and block the time for it in the calendar now","Agree which two things you'll apply within a month of finishing"],
+    "Training":["Run a short internal session teaching what you learned","Pair with someone who already does this well"],
+    "Coaching":["Set a standing 30 minutes with a coach for one quarter","Bring one real, current problem to each session"],
+    "Mentoring":["Find a mentor outside your immediate team","Agree three things you want out of it before the first meeting"],
+    "Job shadowing":["Sit in on a function you depend on but don't understand","Shadow a peer through a full cycle of their work"],
+    "Stretch assignment":["Lead a piece of work one size larger than usual","Own something end to end rather than a slice of it"],
+    "New project":["Take a project in an unfamiliar part of the business","Join something cross-functional where you're not the expert"],
+    "Conference":["Go with two specific questions you want answered","Write up what's worth changing and share it"],
+    "Certification":["Map the certification to the skill it actually proves","Set the exam date first, work backwards"],
+    "Reading / resource":["Pick one book and one person to discuss it with","Summarise the useful third and bin the rest"],
+    "Peer learning":["Set up a regular swap with a peer in another team","Review each other's work before it goes out"],
+    "Leadership exposure":["Present to the leadership team once a quarter","Sit in on a planning session as an observer first"],
+    "Cross-functional experience":["Spend a fixed stint embedded with another function","Take the interface between two teams as your problem"]
+  };
+
   function openDevModal(existing, seed){
     var d = existing || seed || {};
     openModal(existing ? "Edit development plan" : (isMgr() ? "Recommend development" : "Request development"),
@@ -1496,6 +1903,7 @@
       fText("dvArea","Development area","e.g. Executive presentation skills", d.area) +
       fArea("dvWhy","Why it matters","e.g. Increase effectiveness presenting to senior stakeholders", d.why) +
       fSelect("dvType","Type",DEV_TYPES, d.type || "Stretch assignment") +
+      "<div id='dvIdeas'></div>" +
       fArea("dvActivity","The activity","e.g. Present the monthly business update", d.activity) +
       fArea("dvSupport","What " + esc(data.people.manager) + " will do to support this","e.g. Review the first two decks and give feedback", d.support) +
       "<div class='row'>" + fDate("dvTarget","Target date", d.target) +
@@ -1515,9 +1923,32 @@
           payload.id = uid(); payload.at = now(); payload.by = data.role; payload.byName = me();
           data.development.unshift(payload);
           closeModal();
-          commit(me() + (isMgr() ? " recommended development: " : " requested development: ") + area);
+          commit(me() + (isMgr() ? " recommended development: " : " requested development: ") + area,
+            other(), "development");
         }
       }, existing ? "Save changes" : "Save plan");
+
+    /* activity ideas react to the chosen type */
+    var typeSel = document.getElementById("dvType");
+    function paintIdeas(){
+      var ideas = DEV_IDEAS[typeSel.value] || [];
+      document.getElementById("dvIdeas").innerHTML = ideas.length
+        ? "<div class='coach' style='margin:0 0 12px;'><strong>Ideas for " + esc(typeSel.value.toLowerCase()) + "</strong>" +
+          ideas.map(function(t,i){
+            return "<div style='display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:6px;'>" +
+              "<span>" + esc(t) + "</span>" +
+              "<button class='btn ghost sm' data-devidea='" + i + "'>Use</button></div>";
+          }).join("") + "</div>"
+        : "";
+    }
+    paintIdeas();
+    typeSel.addEventListener("change", paintIdeas);
+    document.getElementById("dvIdeas").addEventListener("click", function(e){
+      var b = e.target.closest("[data-devidea]");
+      if(!b) return;
+      var ideas = DEV_IDEAS[typeSel.value] || [];
+      document.getElementById("dvActivity").value = ideas[parseInt(b.getAttribute("data-devidea"),10)] || "";
+    });
   }
   document.getElementById("addDevBtn").addEventListener("click", function(){ openDevModal(null); });
 
@@ -1669,7 +2100,7 @@
           payload.id = uid(); payload.at = now(); payload.byName = me();
           data.actions.unshift(payload);
           closeModal();
-          commit(me() + " added an action: " + text);
+          commit(me() + " added an action: " + text, other(), "actions");
         }
       }, existing ? "Save changes" : "Add action");
   }
@@ -1990,7 +2421,7 @@
       section("Current 1:1", body);
     }
     if(s.past1on1s){
-      section("Past 1:1 summaries", ul(data.meetings.map(function(m){
+      section("Past 1:1 summaries", ul(selectedMeetings().map(function(m){
         return "<strong>" + fmtDate(m.date) + "</strong>" +
           (m.discussed ? "<br><strong>Discussed:</strong> " + esc(m.discussed) : "") +
           (m.agreed ? "<br><strong>Agreed:</strong> " + esc(m.agreed) : "") +
@@ -2106,10 +2537,46 @@
   });
   document.getElementById("selectAllEx").addEventListener("click", function(){
     document.querySelectorAll("#exportOptions [data-ex]").forEach(function(cb){ cb.checked = true; });
+    paintMeetingPicker();
   });
   document.getElementById("selectNoneEx").addEventListener("click", function(){
     document.querySelectorAll("#exportOptions [data-ex]").forEach(function(cb){ cb.checked = false; });
+    paintMeetingPicker();
   });
+
+  /* Picking individual past 1:1s rather than all of them. Repainting must not
+     silently re-tick meetings the user deliberately excluded. */
+  var meetingUnticked = {};
+  function paintMeetingPicker(){
+    var on = document.querySelector("#exportOptions [data-ex='past1on1s']").checked;
+    var box = document.getElementById("pastMeetingPicker");
+    box.style.display = on ? "" : "none";
+    if(!on) return;
+    box.innerHTML = data.meetings.length
+      ? "<div style='font-size:11.5px;color:var(--faint);margin-bottom:6px;'>Untick any you don't want to include.</div>" +
+        data.meetings.map(function(m){
+          return "<label class='checkline' style='font-size:12.5px;'>" +
+            "<input type='checkbox' data-exmeet='" + m.id + "'" + (meetingUnticked[m.id] ? "" : " checked") + "> " +
+            fmtDate(m.date) + " &mdash; " + esc((m.discussed || "No summary").slice(0,60)) +
+            ((m.discussed||"").length > 60 ? "…" : "") + "</label>";
+        }).join("")
+      : "<div style='font-size:12.5px;color:var(--faint);'>No past 1:1s yet — close one out from My 1:1 &rarr; Wrap up.</div>";
+  }
+  document.getElementById("pastMeetingPicker").addEventListener("change", function(e){
+    var cb = e.target.closest("[data-exmeet]");
+    if(!cb) return;
+    meetingUnticked[cb.getAttribute("data-exmeet")] = !cb.checked;
+  });
+  document.getElementById("exportOptions").addEventListener("change", function(e){
+    if(e.target.matches("[data-ex='past1on1s']")) paintMeetingPicker();
+  });
+  function selectedMeetings(){
+    var ids = [];
+    document.querySelectorAll("#pastMeetingPicker [data-exmeet]").forEach(function(cb){
+      if(cb.checked) ids.push(cb.getAttribute("data-exmeet"));
+    });
+    return data.meetings.filter(function(m){ return ids.indexOf(m.id) > -1; });
+  }
 
   /* =====================================================================
      DASHBOARD BITS
@@ -2122,8 +2589,61 @@
     commit(me() + " updated the next 1:1 details");
   });
   document.getElementById("markAllRead").addEventListener("click", function(){
-    data.notifications.forEach(function(n){ n.read = true; });
+    myNotifications().forEach(function(n){ n.read = true; });
     commit(null);
+  });
+
+  /* ---------- Notification bell ---------- */
+  document.getElementById("bellBtn").addEventListener("click", function(){
+    var mine = myNotifications(), live = reminders();
+    var body = "";
+
+    if(live.length){
+      body += "<h3 style='font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;'>Needs your attention</h3>";
+      body += live.map(function(r,i){
+        return "<div class='notif actionable' data-remind='" + i + "'>" +
+          "<div style='display:flex;gap:8px;'>" +
+          "<span class='udot' style='background:" + (r.tone === "late" ? "var(--risk)" : "var(--warn)") + "'></span>" +
+          "<div><div class='item-text'>" + esc(r.text) + "</div>" +
+          "<div class='item-meta'>" + esc(r.sub) + "</div></div></div>" +
+          "<span class='badge " + (r.tone === "late" ? "b-red" : "b-amber") + "'>" +
+          (r.tone === "late" ? "Overdue" : "Soon") + "</span></div>";
+      }).join("");
+    }
+
+    body += "<h3 style='font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:" +
+      (live.length ? "16px" : "0") + " 0 8px;'>From " + esc(them()) + "</h3>";
+    body += mine.length
+      ? "<div class='notif-scroll'>" + mine.slice(0,20).map(function(n){
+          return "<div class='notif" + (n.read ? "" : " unread") + (n.view ? " actionable" : "") + "'" +
+            (n.view ? " data-ngo='" + n.id + "'" : "") + ">" +
+            "<div style='display:flex;gap:8px;'>" + (n.read ? "" : "<span class='udot'></span>") +
+            "<div><div class='item-text'>" + esc(n.text) + "</div>" +
+            "<div class='item-meta'>" + ago(n.at) + (n.view ? " &middot; tap to open" : "") + "</div></div></div></div>";
+        }).join("") + "</div>"
+      : "<div class='empty' style='padding:16px;'>Nothing new from " + esc(them()) + ".</div>";
+
+    body += "<div class='limits'>These alerts live inside this app only. Real email, calendar, " +
+      "Slack or push notifications would need a backend and real user accounts &mdash; which this " +
+      "prototype deliberately doesn't have, because that's also what keeps your data on your own device.</div>";
+
+    openModal("Notifications", "", body, function(){
+      myNotifications().forEach(function(n){ n.read = true; });
+      closeModal();
+      commit(null);
+    }, "Mark all read");
+
+    document.getElementById("modalBody").addEventListener("click", function(e){
+      var go = e.target.closest("[data-ngo]"), rm = e.target.closest("[data-remind]");
+      if(go){
+        var n = data.notifications.find(function(x){ return x.id === go.getAttribute("data-ngo"); });
+        if(n){ n.read = true; save(); closeModal(); show(n.view); }
+      }
+      if(rm){
+        var r = reminders()[parseInt(rm.getAttribute("data-remind"),10)];
+        if(r){ closeModal(); show(r.view); }
+      }
+    });
   });
   document.getElementById("notifList").addEventListener("click", function(e){
     var b = e.target.closest("[data-nread]");
@@ -2167,7 +2687,12 @@
     var activeGoals = data.goals.filter(function(g){ return g.status !== "Complete" && g.status !== "Deferred"; });
     var openActions = data.actions.filter(function(a){ return a.status !== "Done"; });
     var activeDev = data.development.filter(function(d){ return d.status !== "Complete" && d.status !== "Deferred"; });
-    var unread = data.notifications.filter(function(n){ return !n.read; });
+    var unread = myNotifications().filter(function(n){ return !n.read; });
+    var live = reminders();
+    var bellTotal = unread.length + live.length;
+    var bellCount = document.getElementById("bellCount");
+    bellCount.textContent = bellTotal > 99 ? "99+" : bellTotal;
+    bellCount.style.display = bellTotal ? "" : "none";
     var overdue = data.actions.filter(isOverdue);
 
     document.getElementById("navTopics").textContent = openTopics.length;
@@ -2229,19 +2754,19 @@
         }).join("") + "</ul>"
       : "<div class='empty'><div class='big'>Nothing yet</div>Your conversations will build up here.</div>";
 
-    document.getElementById("notifList").innerHTML = data.notifications.length
-      ? data.notifications.slice(0,8).map(function(n){
+    document.getElementById("notifList").innerHTML = myNotifications().length
+      ? myNotifications().slice(0,8).map(function(n){
           return "<div class='notif" + (n.read ? "" : " unread") + "'>" +
             "<div style='display:flex;gap:8px;'>" + (n.read ? "" : "<span class='udot'></span>") +
             "<div><div class='item-text'>" + esc(n.text) + "</div>" +
             "<div class='item-meta'>" + ago(n.at) + "</div></div></div>" +
             (n.read ? "" : "<button class='btn ghost sm' data-nread='" + n.id + "'>Mark read</button>") + "</div>";
         }).join("")
-      : "<div class='empty'><div class='big'>No updates</div>You're both caught up.</div>";
+      : "<div class='empty'><div class='big'>No updates</div>Nothing new from " + esc(them()) + ".</div>";
 
     /* 1:1 */
     if(current === "oneOnOne"){
-      if(subs.oneOnOne === "prepare") renderCheckin();
+      if(subs.oneOnOne === "prepare"){ renderCheckin(); renderSuggestions(); }
       renderTopicList(document.getElementById("talkTopics"),
         data.topics.filter(function(t){ return t.status !== "Parking Lot"; }),
         { emptyTitle:"No topics yet", emptyBody:"Add something in Prepare to get started.", showStatus:true });
@@ -2277,6 +2802,7 @@
     }
 
     if(current === "history") renderHistory();
+    if(current === "export") paintMeetingPicker();
   }
 
   /* seed the wrap-up date field once */
