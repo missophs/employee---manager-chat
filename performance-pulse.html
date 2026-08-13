@@ -459,17 +459,29 @@
             <li><strong>The other person gets a ping</strong> that something was added &mdash; never the content itself.</li>
             <li><strong>In the meeting</strong>, work through the agenda together, mark each topic (Discussed, Needs Assistance&hellip;), and capture actions.</li>
             <li><strong>Everything saves as you go.</strong> Moving between tabs never loses anything, and you can go back and change any item at any time.</li>
-            <li><strong>Want HR to have something?</strong> Export it and send it over. HR is not notified automatically &mdash; they receive it, and know about it, when you choose to send it.</li>
+            <li><strong>Want HR to have something?</strong> Use <em>Send to HR</em> on the Export tab &mdash; it creates the file and opens an email to your HR contact. HR is not notified automatically &mdash; they receive it, and know about it, when you choose to send it.</li>
           </ol>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <h2>Documents</h2>
-          <button class="btn sm" id="docAddBtn">Upload a document</button>
+          <h2>Employee handbook &amp; policies</h2>
+          <button class="btn ghost sm" id="hbAddBtn">HR only: add a link</button>
         </div>
-        <p class="card-note">Either of you can attach files here &mdash; a review draft, a certificate, notes. They stay on this device, visible only to the two of you, like everything else. If one needs to go to HR, download it and send it over.</p>
+        <p class="card-note">Reference documents from HR &mdash; the handbook, key policies. Everyone can read them; only HR should add or change them. Proper HR-only control (uploads, permissions) comes with the cloud version.</p>
+        <div id="hbList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Documents</h2>
+          <div class="btn-row">
+            <button class="btn sm" id="docLinkBtn">Add a link</button>
+            <button class="btn secondary sm" id="docAddBtn">Upload a file</button>
+          </div>
+        </div>
+        <p class="card-note"><strong>Best practice: keep the file in OneDrive, SharePoint, or Google Drive and add the link here.</strong> The file stays in your company's storage with its own permissions. Uploaded files stay in this browser on this device only. If something needs to go to HR, send it yourself &mdash; nothing goes anywhere on its own.</p>
         <input type="file" id="docFileInput" style="display:none;">
         <div id="docList"></div>
       </div>
@@ -872,9 +884,19 @@
         <p class="card-note">Word opens in Word, Pages, or Google Docs. PDF opens your print dialog &mdash; choose &ldquo;Save as PDF&rdquo;.</p>
         <div class="btn-row">
           <button class="btn" id="exportWordBtn">Download as Word</button>
-          <button class="btn secondary" id="exportPdfBtn">Save as PDF</button>
+          <button class="btn secondary" id="exportPdfBtn">Print / Save as PDF</button>
           <button class="btn secondary" id="exportExcelBtn">Download for Excel</button>
           <button class="btn ghost" id="exportJsonBtn">Download raw data (JSON)</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Send to HR</h2>
+        <p class="card-note">Creates the file in the format you pick, then opens an email to your HR contact so you can attach it and send. HR hears about it from you, in that email &mdash; never from the app on its own. You can also print it out and hand it over.</p>
+        <div class="btn-row">
+          <button class="btn" id="sendHrWordBtn">Send as Word</button>
+          <button class="btn secondary" id="sendHrPdfBtn">Send as PDF</button>
+          <button class="btn secondary" id="sendHrExcelBtn">Send as Excel</button>
+          <button class="btn ghost sm" id="hrEmailBtn">Set HR email</button>
         </div>
       </div>
     </section>
@@ -913,7 +935,7 @@
       topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
       goals:[], development:[], career:[], concerns:[], actions:[],
       notifications:[], reviewDrafts:{ employee:"", manager:"" },
-      feedbackRequests:[], customSuggestions:[], documents:[],
+      feedbackRequests:[], customSuggestions:[], documents:[], handbook:[], hrEmail:"",
       assist:false
     };
   }
@@ -2696,13 +2718,7 @@
   });
   document.getElementById("exportPdfBtn").addEventListener("click", function(){
     confirmExport(function(){
-      var w = window.open("", "_blank");
-      if(!w){ alert("Your browser blocked the print window. Allow pop-ups for this page and try again."); return; }
-      w.document.write(wrapDoc(buildExportHtml()));
-      w.document.close();
-      w.focus();
-      setTimeout(function(){ w.print(); }, 400);
-      commit(me() + " created a PDF");
+      if(openPdfWindow()) commit(me() + " created a PDF");
     });
   });
   /* Excel gets a flat table: one row per item, same scope choices as Word/PDF. */
@@ -2736,17 +2752,31 @@
     return rows;
   }
 
+  function downloadExcel(){
+    var csv = buildExportRows().map(function(r){
+      return r.map(function(cell){ return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(",");
+    }).join("\r\n");
+    /* BOM so Excel reads accented characters correctly */
+    var blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "performance-pulse-" + today() + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function openPdfWindow(){
+    var w = window.open("", "_blank");
+    if(!w){ alert("Your browser blocked the print window. Allow pop-ups for this page and try again."); return false; }
+    w.document.write(wrapDoc(buildExportHtml()));
+    w.document.close();
+    w.focus();
+    setTimeout(function(){ w.print(); }, 400);
+    return true;
+  }
+
   document.getElementById("exportExcelBtn").addEventListener("click", function(){
     confirmExport(function(){
-      var csv = buildExportRows().map(function(r){
-        return r.map(function(cell){ return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(",");
-      }).join("\r\n");
-      /* BOM so Excel reads accented characters correctly */
-      var blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" });
-      var url = URL.createObjectURL(blob), a = document.createElement("a");
-      a.href = url; a.download = "performance-pulse-" + today() + ".csv";
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      downloadExcel();
       commit(me() + " exported an Excel file");
     });
   });
@@ -2833,11 +2863,15 @@
       return;
     }
     el.innerHTML = "<ul class='list'>" + data.documents.map(function(doc){
+      var action = doc.url
+        ? "<a class='btn secondary sm' href='" + esc(doc.url) + "' target='_blank' rel='noopener'>Open</a>"
+        : "<a class='btn secondary sm' href='" + doc.data + "' download='" + esc(doc.name) + "'>Download</a>";
+      var meta = (doc.url ? "Link" : fmtSize(doc.size)) + " &middot; added by " + esc(doc.byName) + " &middot; " + ago(doc.at);
       return "<li><div class='item-body'>" +
         "<div class='item-text'>" + esc(doc.name) + "</div>" +
-        "<div class='item-meta'><span>" + fmtSize(doc.size) + " &middot; added by " + esc(doc.byName) + " &middot; " + ago(doc.at) + "</span></div>" +
+        "<div class='item-meta'><span>" + meta + "</span></div>" +
         "</div><div class='item-actions'>" +
-        "<a class='btn secondary sm' href='" + doc.data + "' download='" + esc(doc.name) + "'>Download</a>" +
+        action +
         "<button class='btn ghost sm' data-docdel='" + doc.id + "'>Remove</button>" +
         "</div></li>";
     }).join("") + "</ul>";
@@ -2845,6 +2879,17 @@
 
   document.getElementById("docAddBtn").addEventListener("click", function(){
     document.getElementById("docFileInput").click();
+  });
+  document.getElementById("docLinkBtn").addEventListener("click", function(){
+    var name = prompt("What is the document called?");
+    if(!name || !name.trim()) return;
+    var url = prompt("Paste the OneDrive, SharePoint, or Google Drive link:");
+    if(!url || !url.trim()) return;
+    if(!/^https?:\/\//i.test(url.trim())){ alert("That doesn't look like a web address. It should start with https://"); return; }
+    data.documents.unshift({ id:uid(), name:name.trim(), url:url.trim(), byName:me(), at:now() });
+    save();
+    commit(me() + " added a document link: " + name.trim(), other());
+    renderDocuments();
   });
   document.getElementById("docFileInput").addEventListener("change", function(){
     var f = this.files[0];
@@ -2878,6 +2923,72 @@
     }
   });
   renderDocuments();
+
+  /* ---- handbook & policies: readable by both, managed by HR ---- */
+  function renderHandbook(){
+    var el = document.getElementById("hbList");
+    if(!data.handbook.length){
+      el.innerHTML = "<div class='empty'><div class='big'>Nothing here yet</div>Ask HR for the handbook link and add it once — then it's one click away for both of you.</div>";
+      return;
+    }
+    el.innerHTML = "<ul class='list'>" + data.handbook.map(function(h){
+      return "<li><div class='item-body'>" +
+        "<div class='item-text'><a href='" + esc(h.url) + "' target='_blank' rel='noopener'>" + esc(h.title) + "</a></div>" +
+        "</div><div class='item-actions'>" +
+        "<button class='btn ghost sm' data-hbdel='" + h.id + "'>HR only: remove</button>" +
+        "</div></li>";
+    }).join("") + "</ul>";
+  }
+  document.getElementById("hbAddBtn").addEventListener("click", function(){
+    var title = prompt("Name of the document (e.g. Employee Handbook 2026):");
+    if(!title || !title.trim()) return;
+    var url = prompt("Link to it (the address HR gave you):");
+    if(!url || !url.trim()) return;
+    if(!/^https?:\/\//i.test(url.trim())){ alert("That doesn't look like a web address. It should start with https://"); return; }
+    data.handbook.push({ id:uid(), title:title.trim(), url:url.trim(), at:now() });
+    save(); renderHandbook();
+  });
+  document.getElementById("hbList").addEventListener("click", function(e){
+    var del = e.target.closest("[data-hbdel]");
+    if(!del) return;
+    var i = data.handbook.findIndex(function(h){ return h.id === del.getAttribute("data-hbdel"); });
+    if(i > -1 && confirm("Remove " + data.handbook[i].title + "? Only HR should be doing this.")){
+      data.handbook.splice(i,1); save(); renderHandbook();
+    }
+  });
+  renderHandbook();
+
+  /* ---- send to HR: the export, plus an email the person sends themself ---- */
+  function askHrEmail(){
+    var v = prompt("HR contact's email address:", data.hrEmail || "");
+    if(v === null) return null;
+    v = v.trim();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ alert("That doesn't look like an email address."); return null; }
+    data.hrEmail = v; save();
+    return v;
+  }
+  document.getElementById("hrEmailBtn").addEventListener("click", askHrEmail);
+
+  function sendToHr(format){
+    var to = data.hrEmail || askHrEmail();
+    if(!to) return;
+    confirmExport(function(){
+      if(format === "word"){ downloadWord("performance-pulse", buildExportHtml()); }
+      else if(format === "excel"){ downloadExcel(); }
+      else if(format === "pdf"){ if(!openPdfWindow()) return; }
+      commit(me() + " exported a " + format.toUpperCase() + " file to send to HR");
+      var attachNote = format === "pdf"
+        ? "The print window just opened on my side — I'm saving it as a PDF and attaching it to this email."
+        : "The file just downloaded on my side — I'm attaching it to this email.";
+      var subject = "Performance record — " + data.people.employee + " (sent by " + me() + ")";
+      var body = "Hi,\n\nI'm sharing part of my Performance Pulse record with you. " + attachNote +
+        "\n\nThis was sent deliberately by me, not automatically by the app.\n\n" + me();
+      location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    });
+  }
+  document.getElementById("sendHrWordBtn").addEventListener("click", function(){ sendToHr("word"); });
+  document.getElementById("sendHrPdfBtn").addEventListener("click", function(){ sendToHr("pdf"); });
+  document.getElementById("sendHrExcelBtn").addEventListener("click", function(){ sendToHr("excel"); });
   document.getElementById("saveNext1").addEventListener("click", function(){
     data.next1on1.date = document.getElementById("n1Date").value;
     data.next1on1.time = document.getElementById("n1Time").value;
