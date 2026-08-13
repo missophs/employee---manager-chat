@@ -56,23 +56,39 @@ const state = {
   plans: []
 };
 
-const summary = (name) => ({
-  name,
-  openTopics: state.topics.length,
-  openActions: state.actions.length,
-  plans: state.plans.length,
-  when: null
-});
+/* Who is paired with whom. A real deployment reads this from the database;
+   here it is the one pair in this workspace. Without it nobody can be
+   notified, because the app has no idea who anyone's counterpart is. */
+const PAIRS = {
+  U0BQQTKLQ1E: "U0BPSUWKGRK",
+  U0BPSUWKGRK: "U0BQQTKLQ1E"
+};
+
+const counterpartOf = (userId) => PAIRS[userId] || null;
+
+/* Counts for one person only. Anything the other person wrote is theirs, so
+   it is filtered out here rather than summed across the workspace. */
+const summary = (name, userId) => {
+  const mine = (list) => list.filter((item) => item.by === userId);
+  return {
+    name,
+    openTopics: mine(state.topics).length,
+    openActions: mine(state.actions).length,
+    plans: mine(state.plans).length,
+    when: null
+  };
+};
 
 /* ---------- App Home: the tab in the sidebar ---------- */
 
 app.event("app_home_opened", async ({ event, client, logger }) => {
+  if (event.tab !== "home") return;   // also fires for the Messages tab
   try {
     const profile = await client.users.info({ user: event.user });
     const name = profile.user?.profile?.first_name || profile.user?.name || "there";
     await client.views.publish({
       user_id: event.user,
-      view: homeTab(summary(name))
+      view: homeTab(summary(name, event.user))
     });
   } catch (error) {
     logger.error("Could not publish App Home:", error);
@@ -108,8 +124,20 @@ app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
     const name = profile.user?.profile?.first_name || profile.user?.name || "there";
     await client.views.publish({
       user_id: body.user.id,
-      view: homeTab(summary(name))
+      view: homeTab(summary(name, body.user.id))
     });
+
+    /* Ping the other person. This is the route: whoever added the topic, the
+       counterpart hears about it — employee to manager and manager back the
+       other way. The ping carries the count and the date, never the text. */
+    const other = counterpartOf(body.user.id);
+    if (other) {
+      await notify(other, "topic", {
+        from: name,
+        openTopics: state.topics.filter((t) => t.by === body.user.id).length,
+        when: "not in the diary yet"
+      });
+    }
 
     /* Confirm to the person who added it. Their own text is theirs to see. */
     await client.chat.postMessage({
