@@ -674,7 +674,7 @@
       <div class="tabs" data-tabgroup="performance">
         <button class="tab" data-sub="achievements">Achievements</button>
         <button class="tab" data-sub="feedback">Feedback</button>
-        <button class="tab" data-sub="concerns" id="tabConcerns">Concerns</button>
+        <button class="tab" data-sub="concerns" id="tabConcerns">Updates</button>
         <button class="tab" data-sub="review">Review prep</button>
       </div>
 
@@ -702,8 +702,8 @@
 
       <div class="subview" id="sub-concerns">
         <div class="card">
-          <div class="card-head"><h2>Performance concerns</h2>
-            <button class="btn sm" id="addConcernBtn">Document a concern</button></div>
+          <div class="card-head"><h2>Performance updates</h2>
+            <button class="btn sm" id="addConcernBtn">Add an update</button></div>
           <p class="card-note">Manager-only notes. This stays between the two of you &mdash; it is not sent to HR and creates no formal record anywhere else. Stick to what happened and when.</p>
           <div id="concernsList"></div>
         </div>
@@ -871,8 +871,8 @@
           <label class="checkline"><input type="checkbox" data-ex="performance" checked> Performance summary (achievements &amp; feedback)</label>
           <label class="checkline"><input type="checkbox" data-ex="career" checked> Career conversations</label>
           <label class="checkline"><input type="checkbox" data-ex="actions" checked> Action items</label>
-          <label class="checkline"><input type="checkbox" data-ex="concerns"> Documented concerns <span style="color:var(--faint);font-size:12px;">(manager notes)</span></label>
-          <label class="checkline"><input type="checkbox" data-ex="review"> Review preparation draft</label>
+          <label class="checkline"><input type="checkbox" data-ex="concerns"> Updates <span style="color:var(--faint);font-size:12px;">(manager notes)</span></label>
+          <label class="checkline"><input type="checkbox" data-ex="review"> Review &amp; preparation &mdash; draft</label>
         </div>
         <div class="btn-row" style="margin-top:14px;">
           <button class="btn ghost sm" id="selectAllEx">Select all</button>
@@ -1895,7 +1895,7 @@
      CONCERNS (manager only)
      ===================================================================== */
   document.getElementById("addConcernBtn").addEventListener("click", function(){
-    openModal("Document a concern",
+    openModal("Add an update",
       "Stick to what happened and when. Describe behaviour, not intent &mdash; and skip conclusions about why.",
       fArea("cnWhat","What happened?","The project was due August 5. It was submitted August 9 with no advance notice about the delay.") +
       fDate("cnWhen","When did it happen?", today()) +
@@ -1924,7 +1924,7 @@
             communicated:mv("cnComm"), previously:mv("cnPrev"), support:mv("cnSupport"),
             outcome:mv("cnOutcome"), by:me(), at:now() });
           closeModal();
-          commit("A concern was documented");
+          commit("An update was added");
         }
       }, "Save note");
   });
@@ -2410,7 +2410,7 @@
         body:[f.text, f.example && "For example: " + f.example].filter(Boolean).join("\n"), who:f.from });
     });
     data.concerns.forEach(function(c){
-      out.push({ cat:"Performance", at:c.at, title:"Documented concern", body:c.what, who:c.by });
+      out.push({ cat:"Performance", at:c.at, title:"Manager update", body:c.what, who:c.by });
     });
     data.goals.forEach(function(g){
       out.push({ cat:"Goals", at:g.at, title:"Goal: " + g.text,
@@ -2673,7 +2673,7 @@
       })));
     }
     if(s.concerns){
-      section("Documented concerns", ul(data.concerns.map(function(c){
+      section("Manager updates", ul(data.concerns.map(function(c){
         return "<strong>" + esc(c.what) + "</strong>" +
           (c.when ? "<br><strong>When:</strong> " + esc(c.when) : "") +
           (c.expectation ? "<br><strong>Expectation:</strong> " + esc(c.expectation) : "") +
@@ -2746,7 +2746,7 @@
     if(s.career) data.career.forEach(function(c){ row("Career", c.q, c.a, "", c.byName, ""); });
     if(s.actions) data.actions.forEach(function(a){ row("Actions", a.text, a.notes, a.status, a.owner, a.due || ""); });
     if(s.concerns) data.concerns.forEach(function(c){
-      row("Concerns", c.what, [c.expectation ? "Expectation: " + c.expectation : "", c.support ? "Support: " + c.support : "", c.outcome ? "Outcome sought: " + c.outcome : ""].filter(Boolean).join(" | "), "", "", c.when || "");
+      row("Updates", c.what, [c.expectation ? "Expectation: " + c.expectation : "", c.support ? "Support: " + c.support : "", c.outcome ? "Outcome sought: " + c.outcome : ""].filter(Boolean).join(" | "), "", "", c.when || "");
     });
     if(s.review && data.reviewDrafts[data.role]) row("Review draft", "Prepared by " + me(), data.reviewDrafts[data.role], "", me(), "");
     return rows;
