@@ -880,7 +880,7 @@
 
   function blank(){
     return {
-      people:{ employee:"Maya Rivera", manager:"Alex Kim" },
+      people:{ employee:"Melissa Weiss", manager:"Monte Montoya" },
       role:"employee",
       next1on1:{ date:"", time:"10:00", focus:"Workload, the customer rollout, and where you want support." },
       topics:[], checkins:[], meetings:[], achievements:[], feedback:[],
@@ -896,6 +896,10 @@
     try{
       var raw = localStorage.getItem(KEY);
       if(raw){
+        /* One-time rename: saved data from before the demo names were replaced.
+           A plain string swap catches every field the old names appear in —
+           people, byName, owners, notification text. */
+        raw = raw.replace(/Maya Rivera/g, "Melissa Weiss").replace(/Alex Kim/g, "Monte Montoya");
         var p = JSON.parse(raw), d = blank();
         for(var k in d){ if(p[k] === undefined) p[k] = d[k]; }
         return p;

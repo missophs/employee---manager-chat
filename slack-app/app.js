@@ -88,8 +88,15 @@ const counterpartOf = (userId) => PAIRS[userId] || null;
 /* Which side of the 1:1 each person is on — it decides which example
    questions their Home tab suggests. Swap the values if this is backwards. */
 const ROLES = {
-  U0BQQTKLQ1E: "manager",   // Melissa Weiss
-  U0BPSUWKGRK: "employee"   // Monte Montoya
+  U0BQQTKLQ1E: "employee",  // Melissa Weiss
+  U0BPSUWKGRK: "manager"    // Monte Montoya
+};
+
+/* Real names for the one pair in this workspace, so nothing ever renders a
+   made-up person. The cloud version reads these from Slack profiles. */
+const NAMES = {
+  U0BQQTKLQ1E: "Melissa Weiss",
+  U0BPSUWKGRK: "Monte Montoya"
 };
 
 /* Counts for one person only. Anything the other person wrote is theirs, so
@@ -204,14 +211,16 @@ app.action("open_app", async ({ ack }) => { await ack(); });
 
 /* ---------- /pulse: send yourself any ping, for testing ---------- */
 
+/* Sample data for /pulse test pings. `from` is filled in at send time with the
+   caller's real counterpart, so no invented names appear anywhere. */
 const SAMPLE = {
-  topic:       { from: "Alex Kim", openTopics: 2, when: "Thu, Aug 13 at 10:00 AM" },
-  upcoming:    { from: "Alex Kim", openTopics: 2, when: "Thu, Aug 13 at 10:00 AM" },
-  feedback:    { from: "Alex Kim" },
-  request:     { from: "Alex Kim" },
-  development: { from: "Alex Kim", plans: 3 },
+  topic:       { openTopics: 2, when: "Thu, Aug 13 at 10:00 AM" },
+  upcoming:    { openTopics: 2, when: "Thu, Aug 13 at 10:00 AM" },
+  feedback:    {},
+  request:     {},
+  development: { plans: 3 },
   action:      { open: 2 },
-  wrap:        { from: "Alex Kim" }
+  wrap:        {}
 };
 
 app.command("/pulse", async ({ command, ack, client, respond, logger }) => {
@@ -227,7 +236,9 @@ app.command("/pulse", async ({ command, ack, client, respond, logger }) => {
   }
 
   try {
-    const payload = build(kind, SAMPLE[kind] || {});
+    const other = counterpartOf(command.user_id);
+    const from = (other && NAMES[other]) || "Your 1:1 partner";
+    const payload = build(kind, { ...(SAMPLE[kind] || {}), from });
     await client.chat.postMessage({
       channel: command.user_id,
       text: payload.text,
