@@ -22,6 +22,7 @@ const { App, LogLevel } = require("@slack/bolt");
 const { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal } = require("../blocks");
 const store = require("../lib/store");
 const { queueFor } = require("../lib/questions");
+const { buildExportRows, toCsv } = require("../lib/export");
 
 const APP_URL = process.env.APP_URL || "https://missophs.github.io/employee---manager-chat/";
 
@@ -52,7 +53,7 @@ const app = new App({
   clientId: process.env.SLACK_CLIENT_ID,
   clientSecret: process.env.SLACK_CLIENT_SECRET,
   stateSecret: process.env.SLACK_STATE_SECRET || "performance-pulse-install-state",
-  scopes: ["chat:write", "commands", "users:read", "im:write"],
+  scopes: ["chat:write", "commands", "users:read", "im:write", "files:write"],
   installationStore: store.installationStore,
   installerOptions: { directInstall: true },
   /* Serverless platforms may freeze the function the moment the response is
@@ -429,6 +430,34 @@ app.view("wrap_modal", async ({ ack, view, body, context, client, logger }) => {
     }
   } catch (error) {
     logger.error("Could not save the wrap-up:", error);
+  }
+});
+
+/* ---------- Export: agenda, actions, and history as a CSV file ---------- */
+
+app.action("export_data", async ({ ack, body, context, client, logger }) => {
+  await ack();
+  const teamId = context.teamId, userId = body.user.id;
+  try {
+    const [topics, actions, history] = await Promise.all([
+      store.getTopics(teamId, userId),
+      store.getActions(teamId, userId),
+      store.getHistory(teamId, userId)
+    ]);
+    const csv = toCsv(buildExportRows(topics, actions, history));
+    await client.files.uploadV2({
+      channel_id: userId,
+      filename: "performance-pulse-export.csv",
+      content: csv,
+      initial_comment: ":lock: Your 1:1 data. Only you have this file — nothing was sent to HR or anyone else."
+    });
+  } catch (error) {
+    logger.error("Could not export:", error);
+    try {
+      await client.chat.postMessage({ channel: userId, text: "That export didn't work — try again in a minute." });
+    } catch (sendError) {
+      logger.error("Could not even send the export failure notice:", sendError);
+    }
   }
 });
 

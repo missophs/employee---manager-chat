@@ -208,6 +208,16 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
         ]
       },
       divider(),
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Export*\nYour agenda, actions, and past wrap-up summaries as a spreadsheet — sent to you as a file, right here." },
+        accessory: {
+          type: "button",
+          text: { type: "plain_text", text: "Export", emoji: true },
+          action_id: "export_data"
+        }
+      },
+      divider(),
       section("*Worth asking in your next 1:1*\nTap one to add it straight to the agenda, or write your own below."),
       ...examples.map((q) => {
         const added = addedQuestions.includes(q);
