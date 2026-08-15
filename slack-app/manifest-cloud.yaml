@@ -31,6 +31,7 @@ oauth_config:
       - im:write
       - users:read
       - commands
+      - files:write
 settings:
   event_subscriptions:
     request_url: https://performance-pulse-lyart.vercel.app/slack/events
