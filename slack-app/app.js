@@ -109,7 +109,11 @@ const summary = (name, userId) => {
     openTopics: mine(state.topics).length,
     openActions: mine(state.actions).length,
     plans: mine(state.plans).length,
-    when: null
+    when: null,
+    /* Which suggested questions this person has already tapped "Add" on —
+       lets the Home tab show them as added instead of re-adding on a
+       second tap. */
+    addedQuestions: mine(state.topics).map((t) => t.text).filter(Boolean)
   };
 };
 
@@ -145,9 +149,11 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
 
 /* Shared by both ways a topic gets added: the "Add a topic" modal (typed,
    with a category) and tapping "Add" on a suggested question (no category —
-   it's already one of the app's own prompts). */
-async function addTopicAndNotify(client, body, category, logger) {
-  state.topics.push({ category, by: body.user.id, at: new Date().toISOString() });
+   it's already one of the app's own prompts). `text` is only set for the
+   suggested-question path — it's how the Home tab recognizes which ones to
+   render as already added. */
+async function addTopicAndNotify(client, body, category, logger, text = null) {
+  state.topics.push({ category, text, by: body.user.id, at: new Date().toISOString() });
 
   const profile = await client.users.info({ user: body.user.id });
   const name = profile.user?.profile?.first_name || profile.user?.name || "there";
@@ -209,11 +215,17 @@ app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
 app.action("add_example", async ({ ack, body, client, logger }) => {
   await ack();
   try {
-    await addTopicAndNotify(client, body, "Suggested question", logger);
+    const question = body.actions[0].value;
+    await addTopicAndNotify(client, body, "Suggested question", logger, question);
   } catch (error) {
     logger.error("Could not add the suggested question:", error);
   }
 });
+
+/* The button for a question that's already added. It renders inert (green,
+   "Added") so this just has to acknowledge the tap — Slack requires that
+   within 3 seconds even when there's nothing to do. */
+app.action("already_added", async ({ ack }) => { await ack(); });
 
 /* The open-app button is a link. Slack still sends an event; acknowledge it
    so the button does not show a warning triangle. */

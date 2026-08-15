@@ -105,7 +105,30 @@ async function bumpTopics(teamId, userId) {
   return c;
 }
 
+/* ---------- added questions: which of the app's own suggested prompts a
+   person has already tapped "Add" on ----------
+   Storing the question text here does not cross the line above — these are
+   the app's four canned prompts (identical for every employee, or every
+   manager), never anything a person wrote themselves. It only exists so the
+   Home tab can show "Added" instead of "Add" on the ones already used. */
+
+const addedKey = (teamId, userId) => "added:" + teamId + ":" + userId;
+
+async function getAddedQuestions(teamId, userId) {
+  return (await get(addedKey(teamId, userId))) || [];
+}
+
+async function addQuestion(teamId, userId, text) {
+  const added = await getAddedQuestions(teamId, userId);
+  if (!added.includes(text)) {
+    added.push(text);
+    await set(addedKey(teamId, userId), added);
+  }
+  return added;
+}
+
 module.exports = {
   installationStore, setPair, getPair, getCounts, bumpTopics,
+  getAddedQuestions, addQuestion,
   usingRealStorage: !!REST_URL
 };

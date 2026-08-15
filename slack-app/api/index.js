@@ -86,9 +86,10 @@ async function displayName(client, userId) {
     hardcodes. Pairing is self-serve here: either person picks the other,
     says which side they're on, and both Home tabs update. */
 async function publishHome(client, teamId, userId) {
-  const [pair, counts] = await Promise.all([
+  const [pair, counts, addedQuestions] = await Promise.all([
     store.getPair(teamId, userId),
-    store.getCounts(teamId, userId)
+    store.getCounts(teamId, userId),
+    store.getAddedQuestions(teamId, userId)
   ]);
   const name = await displayName(client, userId);
   const view = homeTab({
@@ -97,7 +98,8 @@ async function publishHome(client, teamId, userId) {
     openTopics: counts.openTopics,
     openActions: counts.openActions,
     plans: counts.plans,
-    when: null
+    when: null,
+    addedQuestions
   });
   const partnerLine = pair
     ? { type: "context", elements: [{ type: "mrkdwn",
@@ -203,8 +205,9 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
    it's already one of the app's own prompts). Bumps the count, refreshes the
    author's Home tab, pings the partner, and confirms — same three steps
    either way. */
-async function addTopicAndNotify({ client, context, body, category, logger }) {
+async function addTopicAndNotify({ client, context, body, category, logger, text = null }) {
   const counts = await store.bumpTopics(context.teamId, body.user.id);
+  if (text) await store.addQuestion(context.teamId, body.user.id, text);
   await publishHome(client, context.teamId, body.user.id);
 
   const pair = await store.getPair(context.teamId, body.user.id);
@@ -253,11 +256,17 @@ app.view("add_topic_modal", async ({ ack, view, body, context, client, logger })
 app.action("add_example", async ({ ack, body, context, client, logger }) => {
   await ack();
   try {
-    await addTopicAndNotify({ client, context, body, category: "Suggested question", logger });
+    const question = body.actions[0].value;
+    await addTopicAndNotify({ client, context, body, category: "Suggested question", logger, text: question });
   } catch (error) {
     logger.error("Could not add the suggested question:", error);
   }
 });
+
+/* The button for a question that's already added. It renders inert (green,
+   "Added") so this just has to acknowledge the tap within Slack's 3-second
+   window — there's nothing left to do. */
+app.action("already_added", async ({ ack }) => { await ack(); });
 
 app.action("open_app", async ({ ack }) => { await ack(); });
 app.action("open_handbook", async ({ ack }) => { await ack(); });

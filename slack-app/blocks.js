@@ -171,7 +171,7 @@ const EXAMPLES = {
   ]
 };
 
-function homeTab({ name = "there", role = "employee", openTopics = 0, openActions = 0, plans = 0, when = null }) {
+function homeTab({ name = "there", role = "employee", openTopics = 0, openActions = 0, plans = 0, when = null, addedQuestions = [] }) {
   const examples = EXAMPLES[role] || EXAMPLES.employee;
   return {
     type: "home",
@@ -190,16 +190,27 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
       },
       divider(),
       section("*Worth asking in your next 1:1*\nTap one to add it straight to the agenda, or write your own below."),
-      ...examples.map((q) => ({
-        type: "section",
-        text: { type: "mrkdwn", text: q },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: "Add", emoji: true },
-          action_id: "add_example",
-          value: q
-        }
-      })),
+      ...examples.map((q) => {
+        const added = addedQuestions.includes(q);
+        return {
+          type: "section",
+          text: { type: "mrkdwn", text: q },
+          accessory: added
+            ? {
+                type: "button",
+                text: { type: "plain_text", text: "Added ✓", emoji: true },
+                style: "primary",
+                action_id: "already_added",
+                value: q
+              }
+            : {
+                type: "button",
+                text: { type: "plain_text", text: "Add", emoji: true },
+                action_id: "add_example",
+                value: q
+              }
+        };
+      }),
       divider(),
       section("*Add something to the agenda*\nIt shows up for the other person straight away."),
       {
