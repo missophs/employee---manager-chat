@@ -179,6 +179,7 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
       header(),
       section(`Hi ${name}. Here's where things stand.`),
       divider(),
+      section("*Performance*"),
       {
         type: "section",
         fields: [
@@ -206,16 +207,6 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
           { type: "button", text: { type: "plain_text", text: "2. Talk", emoji: true }, action_id: "start_talk" },
           { type: "button", text: { type: "plain_text", text: "3. Wrap up", emoji: true }, action_id: "start_wrap" }
         ]
-      },
-      divider(),
-      {
-        type: "section",
-        text: { type: "mrkdwn", text: "*Export*\nYour agenda, actions, and past wrap-up summaries as a spreadsheet — sent to you as a file, right here." },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: "Export", emoji: true },
-          action_id: "export_data"
-        }
       },
       divider(),
       section("*Worth asking in your next 1:1*\nTap one to add it straight to the agenda, or write your own below."),
@@ -264,6 +255,16 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
             action_id: "open_handbook"
           }] : [])
         ]
+      },
+      divider(),
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Export*\nYour agenda, actions, and past wrap-up summaries as a spreadsheet — sent to you as a file, right here." },
+        accessory: {
+          type: "button",
+          text: { type: "plain_text", text: "Export", emoji: true },
+          action_id: "export_data"
+        }
       },
       divider(),
       privacyFooter()
