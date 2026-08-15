@@ -198,6 +198,41 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
   }
 });
 
+/* Shared by both ways a topic gets added: the "Add a topic" modal (typed,
+   with a category) and tapping "Add" on a suggested question (no category —
+   it's already one of the app's own prompts). Bumps the count, refreshes the
+   author's Home tab, pings the partner, and confirms — same three steps
+   either way. */
+async function addTopicAndNotify({ client, context, body, category, logger }) {
+  const counts = await store.bumpTopics(context.teamId, body.user.id);
+  await publishHome(client, context.teamId, body.user.id);
+
+  const pair = await store.getPair(context.teamId, body.user.id);
+  if (pair) {
+    try {
+      const from = await displayName(client, body.user.id);
+      const payload = build("topic", {
+        from, openTopics: counts.openTopics, when: "not in the diary yet"
+      });
+      await client.chat.postMessage({
+        channel: pair.partner, text: payload.text, blocks: payload.blocks
+      });
+    } catch (error) {
+      logger.error("Could not notify the counterpart:", error);
+    }
+  }
+
+  await client.chat.postMessage({
+    channel: body.user.id,
+    text: "Added to your 1:1 agenda.",
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
+      { type: "context", elements: [{ type: "mrkdwn",
+        text: category + " · only your 1:1 partner is told something was added — never what" }] }
+    ]
+  });
+}
+
 app.view("add_topic_modal", async ({ ack, view, body, context, client, logger }) => {
   const text = view.state.values.topic?.text?.value?.trim();
   const category = view.state.values.category?.value?.selected_option?.value;
@@ -208,37 +243,19 @@ app.view("add_topic_modal", async ({ ack, view, body, context, client, logger })
   }
   await ack();
   try {
-    /* Count it — the text itself is deliberately not stored here. It belongs
-       in the app, between the two people. */
-    const counts = await store.bumpTopics(context.teamId, body.user.id);
-    await publishHome(client, context.teamId, body.user.id);
-
-    const pair = await store.getPair(context.teamId, body.user.id);
-    if (pair) {
-      try {
-        const from = await displayName(client, body.user.id);
-        const payload = build("topic", {
-          from, openTopics: counts.openTopics, when: "not in the diary yet"
-        });
-        await client.chat.postMessage({
-          channel: pair.partner, text: payload.text, blocks: payload.blocks
-        });
-      } catch (error) {
-        logger.error("Could not notify the counterpart:", error);
-      }
-    }
-
-    await client.chat.postMessage({
-      channel: body.user.id,
-      text: "Added to your 1:1 agenda.",
-      blocks: [
-        { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
-        { type: "context", elements: [{ type: "mrkdwn",
-          text: (category || "Other") + " · only your 1:1 partner is told something was added — never what" }] }
-      ]
-    });
+    await addTopicAndNotify({ client, context, body, category: category || "Other", logger });
   } catch (error) {
     logger.error("Could not handle the submission:", error);
+  }
+});
+
+/* Tapping "Add" next to a suggested question — one click, no modal. */
+app.action("add_example", async ({ ack, body, context, client, logger }) => {
+  await ack();
+  try {
+    await addTopicAndNotify({ client, context, body, category: "Suggested question", logger });
+  } catch (error) {
+    logger.error("Could not add the suggested question:", error);
   }
 });
 

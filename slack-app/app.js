@@ -143,6 +143,44 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
   }
 });
 
+/* Shared by both ways a topic gets added: the "Add a topic" modal (typed,
+   with a category) and tapping "Add" on a suggested question (no category —
+   it's already one of the app's own prompts). */
+async function addTopicAndNotify(client, body, category, logger) {
+  state.topics.push({ category, by: body.user.id, at: new Date().toISOString() });
+
+  const profile = await client.users.info({ user: body.user.id });
+  const name = profile.user?.profile?.first_name || profile.user?.name || "there";
+  await client.views.publish({
+    user_id: body.user.id,
+    view: homeTab(summary(name, body.user.id))
+  });
+
+  /* Ping the other person. Kept in its own try: if the counterpart cannot be
+     reached, that must not cost the author the confirmation below. */
+  const other = counterpartOf(body.user.id);
+  if (other) {
+    try {
+      await notify(other, "topic", {
+        from: name,
+        openTopics: state.topics.filter((t) => t.by === body.user.id).length,
+        when: "not in the diary yet"
+      });
+    } catch (error) {
+      logger.error("Could not notify the counterpart:", error);
+    }
+  }
+
+  await client.chat.postMessage({
+    channel: body.user.id,
+    text: "Added to your 1:1 agenda.",
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
+      { type: "context", elements: [{ type: "mrkdwn", text: `${category} · only your manager can see this` }] }
+    ]
+  });
+}
+
 app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
   const values = view.state.values;
   const text = values.topic?.text?.value?.trim();
@@ -160,48 +198,20 @@ app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
   }
 
   await ack();
-
-  state.topics.push({ text, category, by: body.user.id, at: new Date().toISOString() });
-
   try {
-    /* Refresh their own Home tab. */
-    const profile = await client.users.info({ user: body.user.id });
-    const name = profile.user?.profile?.first_name || profile.user?.name || "there";
-    await client.views.publish({
-      user_id: body.user.id,
-      view: homeTab(summary(name, body.user.id))
-    });
-
-    /* Ping the other person. This is the route: whoever added the topic, the
-       counterpart hears about it — employee to manager and manager back the
-       other way. The ping carries the count and the date, never the text.
-
-       Kept in its own try: if the counterpart cannot be reached, that must not
-       cost the author the confirmation of their own topic below. */
-    const other = counterpartOf(body.user.id);
-    if (other) {
-      try {
-        await notify(other, "topic", {
-          from: name,
-          openTopics: state.topics.filter((t) => t.by === body.user.id).length,
-          when: "not in the diary yet"
-        });
-      } catch (error) {
-        logger.error("Could not notify the counterpart:", error);
-      }
-    }
-
-    /* Confirm to the person who added it. Their own text is theirs to see. */
-    await client.chat.postMessage({
-      channel: body.user.id,
-      text: "Added to your 1:1 agenda.",
-      blocks: [
-        { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
-        { type: "context", elements: [{ type: "mrkdwn", text: `${category || "Other"} · only your manager can see this` }] }
-      ]
-    });
+    await addTopicAndNotify(client, body, category || "Other", logger);
   } catch (error) {
     logger.error("Could not handle the submission:", error);
+  }
+});
+
+/* Tapping "Add" next to a suggested question — one click, no modal. */
+app.action("add_example", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    await addTopicAndNotify(client, body, "Suggested question", logger);
+  } catch (error) {
+    logger.error("Could not add the suggested question:", error);
   }
 });
 

@@ -189,7 +189,17 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
         ]
       },
       divider(),
-      section("*Worth asking in your next 1:1*\n" + examples.map((q) => `• ${q}`).join("\n")),
+      section("*Worth asking in your next 1:1*\nTap one to add it straight to the agenda, or write your own below."),
+      ...examples.map((q) => ({
+        type: "section",
+        text: { type: "mrkdwn", text: q },
+        accessory: {
+          type: "button",
+          text: { type: "plain_text", text: "Add", emoji: true },
+          action_id: "add_example",
+          value: q
+        }
+      })),
       divider(),
       section("*Add something to the agenda*\nIt shows up for the other person straight away."),
       {
