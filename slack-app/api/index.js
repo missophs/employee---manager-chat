@@ -19,8 +19,9 @@
  */
 
 const { App, LogLevel } = require("@slack/bolt");
-const { build, PINGS, homeTab, addTopicModal } = require("../blocks");
+const { build, PINGS, homeTab, addTopicModal, checkinModal } = require("../blocks");
 const store = require("../lib/store");
+const { queueFor } = require("../lib/questions");
 
 const APP_URL = process.env.APP_URL || "https://missophs.github.io/employee---manager-chat/";
 
@@ -86,10 +87,11 @@ async function displayName(client, userId) {
     hardcodes. Pairing is self-serve here: either person picks the other,
     says which side they're on, and both Home tabs update. */
 async function publishHome(client, teamId, userId) {
-  const [pair, counts, addedQuestions] = await Promise.all([
+  const [pair, counts, addedQuestions, draft] = await Promise.all([
     store.getPair(teamId, userId),
     store.getCounts(teamId, userId),
-    store.getAddedQuestions(teamId, userId)
+    store.getAddedQuestions(teamId, userId),
+    store.getCheckin(teamId, userId)
   ]);
   const name = await displayName(client, userId);
   const view = homeTab({
@@ -99,7 +101,8 @@ async function publishHome(client, teamId, userId) {
     openActions: counts.openActions,
     plans: counts.plans,
     when: null,
-    addedQuestions
+    addedQuestions,
+    checkin: draft ? { step: draft.step, total: draft.queue.length } : null
   });
   const partnerLine = pair
     ? { type: "context", elements: [{ type: "mrkdwn",
@@ -270,6 +273,67 @@ app.action("already_added", async ({ ack }) => { await ack(); });
 
 app.action("open_app", async ({ ack }) => { await ack(); });
 app.action("open_handbook", async ({ ack }) => { await ack(); });
+
+/* ---------- the check-in: one question per modal screen ---------- */
+
+app.action("start_checkin", async ({ ack, body, context, client, logger }) => {
+  await ack();
+  try {
+    const pair = await store.getPair(context.teamId, body.user.id);
+    const role = pair?.role || "employee";
+    const draft = await store.startCheckin(context.teamId, body.user.id, role, queueFor(role));
+    await client.views.open({
+      trigger_id: body.trigger_id,
+      view: checkinModal(draft)
+    });
+  } catch (error) {
+    logger.error("Could not open the check-in:", error);
+  }
+});
+
+app.action("checkin_back", async ({ ack, body, context, client, logger }) => {
+  await ack();
+  try {
+    const { step } = JSON.parse(body.actions[0].value);
+    const draft = await store.goBackCheckin(context.teamId, body.user.id, step);
+    if (!draft) return;
+    await client.views.update({
+      view_id: body.view.id,
+      hash: body.view.hash,
+      view: checkinModal(draft)
+    });
+  } catch (error) {
+    logger.error("Could not go back a question:", error);
+  }
+});
+
+app.view("checkin_step_modal", async ({ ack, view, body, context, client, logger }) => {
+  const { step } = JSON.parse(view.private_metadata || "{}");
+  const text = view.state.values.answer?.text?.value?.trim() || "";
+  try {
+    const result = await store.submitCheckinAnswer(context.teamId, body.user.id, step, text);
+    if (!result) { await ack(); return; }
+
+    if (!result.done) {
+      await ack({ response_action: "update", view: checkinModal(result) });
+      return;
+    }
+
+    await ack();
+    await publishHome(client, context.teamId, body.user.id);
+    await client.chat.postMessage({
+      channel: body.user.id,
+      text: "Check-in saved.",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Check-in saved." } },
+        { type: "context", elements: [{ type: "mrkdwn",
+          text: `${result.queue.length} question${result.queue.length === 1 ? "" : "s"} · only you and your manager could ever see this` }] }
+      ]
+    });
+  } catch (error) {
+    logger.error("Could not save the check-in step:", error);
+  }
+});
 
 /* ---------- /pulse: send yourself any ping, for testing ---------- */
 

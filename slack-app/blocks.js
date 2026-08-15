@@ -171,7 +171,7 @@ const EXAMPLES = {
   ]
 };
 
-function homeTab({ name = "there", role = "employee", openTopics = 0, openActions = 0, plans = 0, when = null, addedQuestions = [] }) {
+function homeTab({ name = "there", role = "employee", openTopics = 0, openActions = 0, plans = 0, when = null, addedQuestions = [], checkin = null }) {
   const examples = EXAMPLES[role] || EXAMPLES.employee;
   return {
     type: "home",
@@ -187,6 +187,22 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
           { type: "mrkdwn", text: `*Development plans*\n${plans}` },
           { type: "mrkdwn", text: `*Next 1:1*\n${when || "Not scheduled"}` }
         ]
+      },
+      divider(),
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: checkin
+            ? `*Your check-in*\nQuestion ${checkin.step + 1} of ${checkin.total} — pick up where you left off.`
+            : `*Your check-in*\n${role === "manager" ? "A few questions to get to specific, observable feedback." : "A short conversation instead of a long form."}`
+        },
+        accessory: {
+          type: "button",
+          text: { type: "plain_text", text: checkin ? "Continue" : "Start my check-in", emoji: true },
+          style: checkin ? undefined : "primary",
+          action_id: "start_checkin"
+        }
       },
       divider(),
       section("*Worth asking in your next 1:1*\nTap one to add it straight to the agenda, or write your own below."),
@@ -287,4 +303,51 @@ function addTopicModal() {
   };
 }
 
-module.exports = { build, PINGS, homeTab, addTopicModal, APP_URL };
+/**
+ * The check-in modal — one question per screen, submit re-renders itself as
+ * the next question via response_action:"update" rather than closing, so it
+ * behaves like the website's step flow instead of a normal one-shot form.
+ */
+function checkinModal({ role, step, queue, answers }) {
+  const total = queue.length;
+  const question = queue[step];
+  const isLast = step === total - 1;
+
+  return {
+    type: "modal",
+    callback_id: "checkin_step_modal",
+    private_metadata: JSON.stringify({ step }),
+    title: { type: "plain_text", text: role === "manager" ? "Your prep" : "Your check-in" },
+    submit: { type: "plain_text", text: isLast ? "Finish" : "Next" },
+    close: { type: "plain_text", text: "Pause for now" },
+    blocks: [
+      context(`Question ${step + 1} of ${total}`),
+      section(`*${question.q}*`),
+      {
+        type: "input",
+        block_id: "answer",
+        optional: true,
+        label: { type: "plain_text", text: "Your answer" },
+        element: {
+          type: "plain_text_input",
+          action_id: "text",
+          multiline: true,
+          initial_value: answers[question.id] || "",
+          placeholder: { type: "plain_text", text: "Skip this one if you'd rather not answer" }
+        }
+      },
+      ...(step > 0 ? [{
+        type: "actions",
+        elements: [{
+          type: "button",
+          text: { type: "plain_text", text: "← Back", emoji: true },
+          action_id: "checkin_back",
+          value: JSON.stringify({ step })
+        }]
+      }] : []),
+      context(":lock: Only you and your manager can see this. Nothing is sent to HR.")
+    ]
+  };
+}
+
+module.exports = { build, PINGS, homeTab, addTopicModal, checkinModal, APP_URL };

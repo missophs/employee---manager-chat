@@ -127,8 +127,57 @@ async function addQuestion(teamId, userId, text) {
   return added;
 }
 
+/* ---------- check-in: the one place real content is stored ----------
+   Everything else in this file is deliberately counts-only. This is the
+   exception — the answers a person types have to persist somewhere for the
+   Slack modal to resume across steps, sessions, even cold starts. That's a
+   real change from the website, where this never left the browser. See the
+   conversation this shipped from for why that tradeoff was made. */
+
+const checkinKey = (teamId, userId) => "checkin:" + teamId + ":" + userId;
+
+async function getCheckin(teamId, userId) {
+  return get(checkinKey(teamId, userId));
+}
+
+/** Starts a fresh draft, or hands back the one already in progress — so
+    tapping "Start my check-in" twice never wipes an answer. */
+async function startCheckin(teamId, userId, role, queue) {
+  const existing = await getCheckin(teamId, userId);
+  if (existing) return existing;
+  const draft = { role, queue, step: 0, answers: {} };
+  await set(checkinKey(teamId, userId), draft);
+  return draft;
+}
+
+/** Saves the answer for the question at `step` and advances. Once the last
+    question is answered, the draft is deleted and the result carries
+    done:true — there is nothing left to resume. */
+async function submitCheckinAnswer(teamId, userId, step, text) {
+  const draft = await getCheckin(teamId, userId);
+  if (!draft) return null;
+  const question = draft.queue[step];
+  if (question) draft.answers[question.id] = text;
+  if (step + 1 >= draft.queue.length) {
+    await del(checkinKey(teamId, userId));
+    return { ...draft, done: true };
+  }
+  draft.step = step + 1;
+  await set(checkinKey(teamId, userId), draft);
+  return { ...draft, done: false };
+}
+
+async function goBackCheckin(teamId, userId, step) {
+  const draft = await getCheckin(teamId, userId);
+  if (!draft) return null;
+  draft.step = Math.max(0, step - 1);
+  await set(checkinKey(teamId, userId), draft);
+  return draft;
+}
+
 module.exports = {
   installationStore, setPair, getPair, getCounts, bumpTopics,
   getAddedQuestions, addQuestion,
+  getCheckin, startCheckin, submitCheckinAnswer, goBackCheckin,
   usingRealStorage: !!REST_URL
 };
