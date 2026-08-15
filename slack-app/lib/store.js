@@ -8,16 +8,23 @@
  * Without the two env vars it falls back to in-memory storage, which is
  * enough to click through a test install but forgets on every cold start.
  *
- * What gets stored, deliberately:
- *   install:<team>        the workspace's OAuth tokens (needed to send anything)
- *   pair:<team>:<user>    who their 1:1 partner is + which side they're on
- *   counts:<team>:<user>  numbers only — open topics, actions, plans
+ * What gets stored:
+ *   install:<team>         the workspace's OAuth tokens (needed to send anything)
+ *   pair:<team>:<user>     who their 1:1 partner is + which side they're on
+ *   topics:<team>:<user>   the live agenda — real text, now (see below)
+ *   actions:<team>:<user>  actions that came out of a 1:1 — real text
+ *   history:<team>:<user>  past wrap-up summaries — real text
+ *   checkin:<team>:<user>  an in-progress check-in draft — real text
  *
- * What never gets stored here: topic text, feedback, goals, anything a person
- * wrote about their performance. The detail lives in the web app. This
- * database could be dumped in its entirety and reveal only who talks to whom
- * and how often — that is the product's privacy promise, kept at the
- * database layer where it cannot be worked around.
+ * Earlier this only ever stored counts, never the actual words anyone typed
+ * — the website (client-only, nothing server-side at all) was where real
+ * content lived. Doing the full Prepare → Talk → Wrap-up flow as native
+ * Slack modals broke that: modals run through this server, so their content
+ * has to live somewhere to persist across steps and sessions. That's a
+ * real, deliberate privacy tradeoff, not an oversight — see the
+ * conversation this shipped from. What's unchanged: nobody except the two
+ * people in a given 1:1 gets this content through the app, and HR still has
+ * no dashboard and no automatic access, same as always.
  */
 
 const REST_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL
@@ -90,19 +97,89 @@ async function getPair(teamId, userId) {
   return get(pairKey(teamId, userId));
 }
 
-/* ---------- counts: numbers only, never content ---------- */
+/* ---------- topics: the live 1:1 agenda ----------
+   Real records now, not just a count — Talk needs to mark each one
+   discussed or parked, and Wrap-up needs to know which to clear. */
 
-const countsKey = (teamId, userId) => "counts:" + teamId + ":" + userId;
+const topicsKey = (teamId, userId) => "topics:" + teamId + ":" + userId;
+const nextId = (list) => (list.length ? Math.max(...list.map((x) => x.id)) + 1 : 1);
 
-async function getCounts(teamId, userId) {
-  return (await get(countsKey(teamId, userId))) || { openTopics: 0, openActions: 0, plans: 0 };
+async function getTopics(teamId, userId) {
+  return (await get(topicsKey(teamId, userId))) || [];
 }
 
-async function bumpTopics(teamId, userId) {
-  const c = await getCounts(teamId, userId);
-  c.openTopics += 1;
-  await set(countsKey(teamId, userId), c);
-  return c;
+async function addTopic(teamId, userId, text, category) {
+  const topics = await getTopics(teamId, userId);
+  const topic = { id: nextId(topics), text, category, status: "open", at: Date.now() };
+  topics.push(topic);
+  await set(topicsKey(teamId, userId), topics);
+  return topic;
+}
+
+/** status is "open" | "discussed" | "parking". */
+async function setTopicStatus(teamId, userId, topicId, status) {
+  const topics = await getTopics(teamId, userId);
+  const topic = topics.find((t) => t.id === topicId);
+  if (topic) {
+    topic.status = status;
+    await set(topicsKey(teamId, userId), topics);
+  }
+  return topic;
+}
+
+/** Wrap-up "closes out" a conversation: discussed topics are filed away,
+    open and parked topics stay on the agenda for next time. */
+async function clearDiscussedTopics(teamId, userId) {
+  const topics = await getTopics(teamId, userId);
+  const remaining = topics.filter((t) => t.status !== "discussed");
+  await set(topicsKey(teamId, userId), remaining);
+  return remaining;
+}
+
+/* ---------- actions: things to follow up on ---------- */
+
+const actionsKey = (teamId, userId) => "actions:" + teamId + ":" + userId;
+
+async function getActions(teamId, userId) {
+  return (await get(actionsKey(teamId, userId))) || [];
+}
+
+async function addAction(teamId, userId, text) {
+  const actions = await getActions(teamId, userId);
+  const action = { id: nextId(actions), text, done: false, at: Date.now() };
+  actions.push(action);
+  await set(actionsKey(teamId, userId), actions);
+  return action;
+}
+
+/* ---------- history: past wrap-up summaries ---------- */
+
+const historyKey = (teamId, userId) => "history:" + teamId + ":" + userId;
+
+async function getHistory(teamId, userId) {
+  return (await get(historyKey(teamId, userId))) || [];
+}
+
+/** Saves the summary, then closes out the conversation the same way the
+    website does: discussed topics are cleared, parking lot stays. */
+async function saveWrapUp(teamId, userId, summary) {
+  const history = await getHistory(teamId, userId);
+  const entry = { ...summary, at: Date.now() };
+  history.push(entry);
+  await set(historyKey(teamId, userId), history);
+  await clearDiscussedTopics(teamId, userId);
+  return entry;
+}
+
+/* ---------- counts: derived from the real records above ---------- */
+
+async function getCounts(teamId, userId) {
+  const [topics, actions] = await Promise.all([getTopics(teamId, userId), getActions(teamId, userId)]);
+  return {
+    openTopics: topics.filter((t) => t.status !== "discussed").length,
+    openActions: actions.filter((a) => !a.done).length,
+    plans: 0
+  };
 }
 
 /* ---------- added questions: which of the app's own suggested prompts a
@@ -176,7 +253,10 @@ async function goBackCheckin(teamId, userId, step) {
 }
 
 module.exports = {
-  installationStore, setPair, getPair, getCounts, bumpTopics,
+  installationStore, setPair, getPair, getCounts,
+  getTopics, addTopic, setTopicStatus, clearDiscussedTopics,
+  getActions, addAction,
+  getHistory, saveWrapUp,
   getAddedQuestions, addQuestion,
   getCheckin, startCheckin, submitCheckinAnswer, goBackCheckin,
   usingRealStorage: !!REST_URL

@@ -19,7 +19,7 @@
  */
 
 const { App, LogLevel } = require("@slack/bolt");
-const { build, PINGS, homeTab, addTopicModal, checkinModal } = require("../blocks");
+const { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal } = require("../blocks");
 const store = require("../lib/store");
 const { queueFor } = require("../lib/questions");
 
@@ -205,14 +205,18 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
 
 /* Shared by both ways a topic gets added: the "Add a topic" modal (typed,
    with a category) and tapping "Add" on a suggested question (no category —
-   it's already one of the app's own prompts). Bumps the count, refreshes the
-   author's Home tab, pings the partner, and confirms — same three steps
-   either way. */
-async function addTopicAndNotify({ client, context, body, category, logger, text = null }) {
-  const counts = await store.bumpTopics(context.teamId, body.user.id);
-  if (text) await store.addQuestion(context.teamId, body.user.id, text);
+   it's already one of the app's own prompts). Stores the real topic,
+   refreshes the author's Home tab, pings the partner, and confirms — same
+   steps either way. */
+async function addTopicAndNotify({ client, context, body, category, text, logger }) {
+  const topic = await store.addTopic(context.teamId, body.user.id, text, category);
+  /* Only the suggested-question path counts toward "Added ✓" — a custom
+     typed topic that happens to match a suggestion's wording shouldn't turn
+     that button green too. */
+  if (category === "Suggested question") await store.addQuestion(context.teamId, body.user.id, text);
   await publishHome(client, context.teamId, body.user.id);
 
+  const counts = await store.getCounts(context.teamId, body.user.id);
   const pair = await store.getPair(context.teamId, body.user.id);
   if (pair) {
     try {
@@ -237,6 +241,7 @@ async function addTopicAndNotify({ client, context, body, category, logger, text
         text: category + " · only your 1:1 partner is told something was added — never what" }] }
     ]
   });
+  return topic;
 }
 
 app.view("add_topic_modal", async ({ ack, view, body, context, client, logger }) => {
@@ -249,7 +254,7 @@ app.view("add_topic_modal", async ({ ack, view, body, context, client, logger })
   }
   await ack();
   try {
-    await addTopicAndNotify({ client, context, body, category: category || "Other", logger });
+    await addTopicAndNotify({ client, context, body, category: category || "Other", text, logger });
   } catch (error) {
     logger.error("Could not handle the submission:", error);
   }
@@ -260,7 +265,7 @@ app.action("add_example", async ({ ack, body, context, client, logger }) => {
   await ack();
   try {
     const question = body.actions[0].value;
-    await addTopicAndNotify({ client, context, body, category: "Suggested question", logger, text: question });
+    await addTopicAndNotify({ client, context, body, category: "Suggested question", text: question, logger });
   } catch (error) {
     logger.error("Could not add the suggested question:", error);
   }
@@ -332,6 +337,98 @@ app.view("checkin_step_modal", async ({ ack, view, body, context, client, logger
     });
   } catch (error) {
     logger.error("Could not save the check-in step:", error);
+  }
+});
+
+/* ---------- Talk: the live agenda ---------- */
+
+app.action("start_talk", async ({ ack, body, context, client, logger }) => {
+  await ack();
+  try {
+    const topics = await store.getTopics(context.teamId, body.user.id);
+    await client.views.open({ trigger_id: body.trigger_id, view: talkModal({ topics }) });
+  } catch (error) {
+    logger.error("Could not open Talk:", error);
+  }
+});
+
+app.action("talk_topic_action", async ({ ack, body, context, client, logger }) => {
+  await ack();
+  try {
+    const [kind, idStr] = body.actions[0].selected_option.value.split(":");
+    const topicId = Number(idStr);
+    const teamId = context.teamId, userId = body.user.id;
+
+    if (kind === "action") {
+      const topics = await store.getTopics(teamId, userId);
+      const topic = topics.find((t) => t.id === topicId);
+      if (topic) await store.addAction(teamId, userId, topic.text);
+      await store.setTopicStatus(teamId, userId, topicId, "discussed");
+    } else {
+      await store.setTopicStatus(teamId, userId, topicId, kind);
+    }
+
+    const topics = await store.getTopics(teamId, userId);
+    await client.views.update({ view_id: body.view.id, hash: body.view.hash, view: talkModal({ topics }) });
+    await publishHome(client, teamId, userId);
+  } catch (error) {
+    logger.error("Could not update the topic:", error);
+  }
+});
+
+/* ---------- Wrap up: closes out the conversation ---------- */
+
+app.action("start_wrap", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    await client.views.open({ trigger_id: body.trigger_id, view: wrapModal() });
+  } catch (error) {
+    logger.error("Could not open Wrap up:", error);
+  }
+});
+
+app.view("wrap_modal", async ({ ack, view, body, context, client, logger }) => {
+  const v = view.state.values;
+  const val = (blockId) => v[blockId]?.value?.value?.trim() || "";
+  const summary = {
+    discussed: val("discussed"),
+    agreed: val("agreed"),
+    revisit: val("revisit"),
+    start: val("start"),
+    stop: val("stop"),
+    cont: val("continue"),
+    nextDate: v.nextDate?.value?.selected_date || null
+  };
+  await ack();
+  try {
+    const teamId = context.teamId, userId = body.user.id;
+    await store.saveWrapUp(teamId, userId, summary);
+
+    const actionText = val("action");
+    if (actionText) await store.addAction(teamId, userId, actionText);
+
+    await publishHome(client, teamId, userId);
+    await client.chat.postMessage({
+      channel: userId,
+      text: "Your 1:1 is wrapped up.",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn",
+          text: ":white_check_mark: Your 1:1 is wrapped up. Discussed topics are filed away; parking lot items stay on the agenda." } }
+      ]
+    });
+
+    const pair = await store.getPair(teamId, userId);
+    if (pair) {
+      try {
+        const from = await displayName(client, userId);
+        const payload = build("wrap", { from });
+        await client.chat.postMessage({ channel: pair.partner, text: payload.text, blocks: payload.blocks });
+      } catch (error) {
+        logger.error("Could not notify the counterpart:", error);
+      }
+    }
+  } catch (error) {
+    logger.error("Could not save the wrap-up:", error);
   }
 });
 

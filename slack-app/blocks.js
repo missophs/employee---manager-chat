@@ -189,20 +189,23 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
         ]
       },
       divider(),
+      section("*My 1:1*\nPrepare, talk, and wrap up — one conversation at a time. Jump to any step."),
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: checkin
-            ? `*Your check-in*\nQuestion ${checkin.step + 1} of ${checkin.total} — pick up where you left off.`
-            : `*Your check-in*\n${role === "manager" ? "A few questions to get to specific, observable feedback." : "A short conversation instead of a long form."}`
-        },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: checkin ? "Continue" : "Start my check-in", emoji: true },
-          style: checkin ? undefined : "primary",
-          action_id: "start_checkin"
-        }
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              emoji: true,
+              text: checkin ? `Prepare — Continue (${checkin.step + 1}/${checkin.total})` : "1. Prepare"
+            },
+            style: checkin ? undefined : "primary",
+            action_id: "start_checkin"
+          },
+          { type: "button", text: { type: "plain_text", text: "2. Talk", emoji: true }, action_id: "start_talk" },
+          { type: "button", text: { type: "plain_text", text: "3. Wrap up", emoji: true }, action_id: "start_wrap" }
+        ]
       },
       divider(),
       section("*Worth asking in your next 1:1*\nTap one to add it straight to the agenda, or write your own below."),
@@ -350,4 +353,97 @@ function checkinModal({ role, step, queue, answers }) {
   };
 }
 
-module.exports = { build, PINGS, homeTab, addTopicModal, checkinModal, APP_URL };
+const textField = (blockId, label, placeholder, multiline = true) => ({
+  type: "input",
+  block_id: blockId,
+  optional: true,
+  label: { type: "plain_text", text: label },
+  element: {
+    type: "plain_text_input",
+    action_id: "value",
+    multiline,
+    placeholder: { type: "plain_text", text: placeholder }
+  }
+});
+
+/**
+ * Talk — the live agenda. Not a form: each topic has an overflow menu to
+ * mark it discussed, park it, or turn it into an action, and the modal
+ * redraws itself in place (views.update) after every tap so it stays
+ * usable through a whole conversation without reopening it.
+ */
+function talkModal({ topics }) {
+  const open = topics.filter((t) => t.status === "open");
+  const parked = topics.filter((t) => t.status === "parking");
+
+  const row = (t) => ({
+    type: "section",
+    text: { type: "mrkdwn", text: t.text + (t.category ? `\n_${t.category}_` : "") },
+    accessory: {
+      type: "overflow",
+      action_id: "talk_topic_action",
+      options: [
+        { text: { type: "plain_text", text: "Mark discussed" }, value: "discussed:" + t.id },
+        { text: { type: "plain_text", text: "Move to parking lot" }, value: "parking:" + t.id },
+        { text: { type: "plain_text", text: "Turn into an action" }, value: "action:" + t.id }
+      ]
+    }
+  });
+
+  return {
+    type: "modal",
+    callback_id: "talk_modal",
+    title: { type: "plain_text", text: "Talk" },
+    close: { type: "plain_text", text: "Done for now" },
+    blocks: [
+      context("Mark each topic as you go."),
+      ...(open.length ? open.map(row) : [section("_Nothing open on the agenda._")]),
+      divider(),
+      section("*Parking lot*\nWorth talking about — just not today."),
+      ...(parked.length ? parked.map(row) : [section("_Nothing parked._")])
+    ]
+  };
+}
+
+/**
+ * Wrap up — closes out the conversation. Saving here is what files
+ * discussed topics into history and clears them off the agenda; parked
+ * topics carry over to next time. Matches the website's Wrap-up tab, minus
+ * its two separate "next conversation" / "90-day check-in" dates (one date
+ * field here) and its repeatable action list (one optional action here) —
+ * trimmed to fit a single modal.
+ */
+function wrapModal() {
+  return {
+    type: "modal",
+    callback_id: "wrap_modal",
+    title: { type: "plain_text", text: "Wrap up" },
+    submit: { type: "plain_text", text: "Save & close out" },
+    close: { type: "plain_text", text: "Cancel" },
+    blocks: [
+      section("A short summary you can both look back on."),
+      textField("discussed", "What we discussed", "From this conversation — the headline."),
+      textField("agreed", "What we agreed on", "Decisions, expectations, anything you both signed up for."),
+      textField("revisit", "Topics to revisit next time", "Anything you ran out of time for."),
+      context("Start · Stop · Continue — the only rating here. No numbers, no scores."),
+      textField("start", "Start", "One thing to start doing", false),
+      textField("stop", "Stop", "One thing to stop doing", false),
+      textField("continue", "Continue", "One thing that works — keep doing it", false),
+      textField("action", "Action for this conversation (optional)", "Something to follow up on", false),
+      {
+        type: "input",
+        block_id: "nextDate",
+        optional: true,
+        label: { type: "plain_text", text: "Next conversation" },
+        element: {
+          type: "datepicker",
+          action_id: "value",
+          placeholder: { type: "plain_text", text: "Pick a date" }
+        }
+      },
+      context(":lock: Closing out clears discussed topics from the agenda. Parking lot items stay.")
+    ]
+  };
+}
+
+module.exports = { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal, APP_URL };
