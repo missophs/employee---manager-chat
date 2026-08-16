@@ -34,14 +34,53 @@ const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_A
 
 const memory = new Map();
 
+if (!REST_URL) {
+  console.warn(
+    "[store] No Redis env vars found (UPSTASH_REDIS_REST_URL / KV_REST_API_URL) — " +
+    "using in-memory storage, which is wiped on every cold start. Data will appear to vanish."
+  );
+}
+
+const COMMAND_TIMEOUT_MS = 10_000;
+
 async function command(parts) {
-  const res = await fetch(REST_URL, {
-    method: "POST",
-    headers: { Authorization: "Bearer " + REST_TOKEN, "Content-Type": "application/json" },
-    body: JSON.stringify(parts)
-  });
-  if (!res.ok) throw new Error("Storage error " + res.status + ": " + (await res.text()).slice(0, 200));
-  return res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), COMMAND_TIMEOUT_MS);
+  try {
+    const res = await fetch(REST_URL, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + REST_TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify(parts),
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error("Storage error " + res.status + ": " + (await res.text()).slice(0, 200));
+    return res.json();
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("Storage request timed out after " + COMMAND_TIMEOUT_MS + "ms");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ---------- per-key write serialization ----------
+   addTopic/setTopicStatus/etc. are all read-full-list, mutate, write-full-list
+   — two calls for the same key in the same warm serverless instance (a fast
+   double-tap) can otherwise both read the same snapshot and the second write
+   silently drops the first. This serializes same-key writes within one
+   process. It does NOT protect against two different Vercel instances
+   racing on the same key at the same moment — that needs a Redis-side lock
+   (WATCH/MULTI or a Lua script), deliberately not added here since it can't
+   be verified without a live Redis instance. Given this app pairs exactly
+   two people, same-instance double-taps are the realistic case; cross-instance
+   collisions are a known, accepted gap. */
+const locks = new Map();
+
+function withLock(key, fn) {
+  const prior = locks.get(key) || Promise.resolve();
+  const settled = prior.then(fn, fn);
+  locks.set(key, settled.then(() => {}, () => {}));
+  return settled;
 }
 
 async function get(key) {
@@ -86,11 +125,24 @@ const installationStore = {
 
 const pairKey = (teamId, userId) => "pair:" + teamId + ":" + userId;
 
-/** Save both directions at once so the pair can never be half-set. */
+/** Save both directions — if the second write fails, roll back the first
+    rather than leaving one side pointing at a partner who doesn't point back. */
 async function setPair(teamId, userId, partnerId, myRole) {
   const otherRole = myRole === "manager" ? "employee" : "manager";
-  await set(pairKey(teamId, userId), { partner: partnerId, role: myRole });
-  await set(pairKey(teamId, partnerId), { partner: userId, role: otherRole });
+  const mineKey = pairKey(teamId, userId);
+  const previousMine = await get(mineKey);
+  await set(mineKey, { partner: partnerId, role: myRole });
+  try {
+    await set(pairKey(teamId, partnerId), { partner: userId, role: otherRole });
+  } catch (error) {
+    try {
+      if (previousMine) await set(mineKey, previousMine);
+      else await del(mineKey);
+    } catch (rollbackError) {
+      console.error("[store] setPair rollback also failed — pair may be half-set:", rollbackError);
+    }
+    throw error;
+  }
 }
 
 async function getPair(teamId, userId) {
@@ -109,31 +161,37 @@ async function getTopics(teamId, userId) {
 }
 
 async function addTopic(teamId, userId, text, category) {
-  const topics = await getTopics(teamId, userId);
-  const topic = { id: nextId(topics), text, category, status: "open", at: Date.now() };
-  topics.push(topic);
-  await set(topicsKey(teamId, userId), topics);
-  return topic;
+  return withLock(topicsKey(teamId, userId), async () => {
+    const topics = await getTopics(teamId, userId);
+    const topic = { id: nextId(topics), text, category, status: "open", at: Date.now() };
+    topics.push(topic);
+    await set(topicsKey(teamId, userId), topics);
+    return topic;
+  });
 }
 
 /** status is "open" | "discussed" | "parking". */
 async function setTopicStatus(teamId, userId, topicId, status) {
-  const topics = await getTopics(teamId, userId);
-  const topic = topics.find((t) => t.id === topicId);
-  if (topic) {
-    topic.status = status;
-    await set(topicsKey(teamId, userId), topics);
-  }
-  return topic;
+  return withLock(topicsKey(teamId, userId), async () => {
+    const topics = await getTopics(teamId, userId);
+    const topic = topics.find((t) => t.id === topicId);
+    if (topic) {
+      topic.status = status;
+      await set(topicsKey(teamId, userId), topics);
+    }
+    return topic;
+  });
 }
 
 /** Wrap-up "closes out" a conversation: discussed topics are filed away,
     open and parked topics stay on the agenda for next time. */
 async function clearDiscussedTopics(teamId, userId) {
-  const topics = await getTopics(teamId, userId);
-  const remaining = topics.filter((t) => t.status !== "discussed");
-  await set(topicsKey(teamId, userId), remaining);
-  return remaining;
+  return withLock(topicsKey(teamId, userId), async () => {
+    const topics = await getTopics(teamId, userId);
+    const remaining = topics.filter((t) => t.status !== "discussed");
+    await set(topicsKey(teamId, userId), remaining);
+    return remaining;
+  });
 }
 
 /* ---------- actions: things to follow up on ---------- */
@@ -145,11 +203,13 @@ async function getActions(teamId, userId) {
 }
 
 async function addAction(teamId, userId, text) {
-  const actions = await getActions(teamId, userId);
-  const action = { id: nextId(actions), text, done: false, at: Date.now() };
-  actions.push(action);
-  await set(actionsKey(teamId, userId), actions);
-  return action;
+  return withLock(actionsKey(teamId, userId), async () => {
+    const actions = await getActions(teamId, userId);
+    const action = { id: nextId(actions), text, done: false, at: Date.now() };
+    actions.push(action);
+    await set(actionsKey(teamId, userId), actions);
+    return action;
+  });
 }
 
 /* ---------- history: past wrap-up summaries ---------- */
@@ -160,13 +220,21 @@ async function getHistory(teamId, userId) {
   return (await get(historyKey(teamId, userId))) || [];
 }
 
+/** Keeps the most recent summaries only — real Redis values have a size
+    limit, and nobody needs to page through years of wrap-ups in a modal. */
+const HISTORY_LIMIT = 200;
+
 /** Saves the summary, then closes out the conversation the same way the
     website does: discussed topics are cleared, parking lot stays. */
 async function saveWrapUp(teamId, userId, summary) {
-  const history = await getHistory(teamId, userId);
-  const entry = { ...summary, at: Date.now() };
-  history.push(entry);
-  await set(historyKey(teamId, userId), history);
+  const entry = await withLock(historyKey(teamId, userId), async () => {
+    const history = await getHistory(teamId, userId);
+    const e = { ...summary, at: Date.now() };
+    history.push(e);
+    if (history.length > HISTORY_LIMIT) history.splice(0, history.length - HISTORY_LIMIT);
+    await set(historyKey(teamId, userId), history);
+    return e;
+  });
   await clearDiscussedTopics(teamId, userId);
   return entry;
 }
@@ -196,12 +264,14 @@ async function getAddedQuestions(teamId, userId) {
 }
 
 async function addQuestion(teamId, userId, text) {
-  const added = await getAddedQuestions(teamId, userId);
-  if (!added.includes(text)) {
-    added.push(text);
-    await set(addedKey(teamId, userId), added);
-  }
-  return added;
+  return withLock(addedKey(teamId, userId), async () => {
+    const added = await getAddedQuestions(teamId, userId);
+    if (!added.includes(text)) {
+      added.push(text);
+      await set(addedKey(teamId, userId), added);
+    }
+    return added;
+  });
 }
 
 /* ---------- check-in: the one place real content is stored ----------
@@ -220,36 +290,42 @@ async function getCheckin(teamId, userId) {
 /** Starts a fresh draft, or hands back the one already in progress — so
     tapping "Start my check-in" twice never wipes an answer. */
 async function startCheckin(teamId, userId, role, queue) {
-  const existing = await getCheckin(teamId, userId);
-  if (existing) return existing;
-  const draft = { role, queue, step: 0, answers: {} };
-  await set(checkinKey(teamId, userId), draft);
-  return draft;
+  return withLock(checkinKey(teamId, userId), async () => {
+    const existing = await getCheckin(teamId, userId);
+    if (existing) return existing;
+    const draft = { role, queue, step: 0, answers: {} };
+    await set(checkinKey(teamId, userId), draft);
+    return draft;
+  });
 }
 
 /** Saves the answer for the question at `step` and advances. Once the last
     question is answered, the draft is deleted and the result carries
     done:true — there is nothing left to resume. */
 async function submitCheckinAnswer(teamId, userId, step, text) {
-  const draft = await getCheckin(teamId, userId);
-  if (!draft) return null;
-  const question = draft.queue[step];
-  if (question) draft.answers[question.id] = text;
-  if (step + 1 >= draft.queue.length) {
-    await del(checkinKey(teamId, userId));
-    return { ...draft, done: true };
-  }
-  draft.step = step + 1;
-  await set(checkinKey(teamId, userId), draft);
-  return { ...draft, done: false };
+  return withLock(checkinKey(teamId, userId), async () => {
+    const draft = await getCheckin(teamId, userId);
+    if (!draft) return null;
+    const question = draft.queue[step];
+    if (question) draft.answers[question.id] = text;
+    if (step + 1 >= draft.queue.length) {
+      await del(checkinKey(teamId, userId));
+      return { ...draft, done: true };
+    }
+    draft.step = step + 1;
+    await set(checkinKey(teamId, userId), draft);
+    return { ...draft, done: false };
+  });
 }
 
 async function goBackCheckin(teamId, userId, step) {
-  const draft = await getCheckin(teamId, userId);
-  if (!draft) return null;
-  draft.step = Math.max(0, step - 1);
-  await set(checkinKey(teamId, userId), draft);
-  return draft;
+  return withLock(checkinKey(teamId, userId), async () => {
+    const draft = await getCheckin(teamId, userId);
+    if (!draft) return null;
+    draft.step = Math.max(0, step - 1);
+    await set(checkinKey(teamId, userId), draft);
+    return draft;
+  });
 }
 
 module.exports = {

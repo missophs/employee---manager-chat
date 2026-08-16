@@ -77,6 +77,10 @@ const app = new App({
   }]
 });
 
+app.error(async (error) => {
+  console.error("Unhandled Bolt error:", error);
+});
+
 /* ---------- helpers ---------- */
 
 async function displayName(client, userId) {
@@ -215,7 +219,12 @@ async function addTopicAndNotify({ client, context, body, category, text, logger
      typed topic that happens to match a suggestion's wording shouldn't turn
      that button green too. */
   if (category === "Suggested question") await store.addQuestion(context.teamId, body.user.id, text);
-  await publishHome(client, context.teamId, body.user.id);
+
+  try {
+    await publishHome(client, context.teamId, body.user.id);
+  } catch (error) {
+    logger.error("Topic was saved but the Home tab could not refresh:", error);
+  }
 
   const counts = await store.getCounts(context.teamId, body.user.id);
   const pair = await store.getPair(context.teamId, body.user.id);
@@ -233,15 +242,21 @@ async function addTopicAndNotify({ client, context, body, category, text, logger
     }
   }
 
-  await client.chat.postMessage({
-    channel: body.user.id,
-    text: "Added to your 1:1 agenda.",
-    blocks: [
-      { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
-      { type: "context", elements: [{ type: "mrkdwn",
-        text: category + " · only your 1:1 partner is told something was added — never what" }] }
-    ]
-  });
+  try {
+    await client.chat.postMessage({
+      channel: body.user.id,
+      text: "Added to your 1:1 agenda.",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
+        { type: "context", elements: [{ type: "mrkdwn",
+          text: category + " · only your 1:1 partner is told something was added — never what" }] }
+      ]
+    });
+  } catch (error) {
+    /* The topic is saved and the Home tab (if it refreshed above) already
+       shows it — this is only the confirmation DM, so log rather than throw. */
+    logger.error("Topic was saved but the confirmation message failed to send:", error);
+  }
   return topic;
 }
 
@@ -314,7 +329,14 @@ app.action("checkin_back", async ({ ack, body, context, client, logger }) => {
 });
 
 app.view("checkin_step_modal", async ({ ack, view, body, context, client, logger }) => {
-  const { step } = JSON.parse(view.private_metadata || "{}");
+  let step;
+  try {
+    ({ step } = JSON.parse(view.private_metadata || "{}"));
+  } catch (error) {
+    logger.error("Could not parse check-in metadata:", error);
+    await ack();
+    return;
+  }
   const text = view.state.values.answer?.text?.value?.trim() || "";
   try {
     const result = await store.submitCheckinAnswer(context.teamId, body.user.id, step, text);
@@ -358,6 +380,7 @@ app.action("talk_topic_action", async ({ ack, body, context, client, logger }) =
   try {
     const [kind, idStr] = body.actions[0].selected_option.value.split(":");
     const topicId = Number(idStr);
+    if (!Number.isFinite(topicId)) { logger.error("Malformed topic action value:", body.actions[0].selected_option.value); return; }
     const teamId = context.teamId, userId = body.user.id;
 
     if (kind === "action") {

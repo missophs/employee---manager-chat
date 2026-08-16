@@ -36,14 +36,24 @@ const context = (markdown) => ({
 
 const divider = () => ({ type: "divider" });
 
-const openButton = (label = "Open Performance Pulse", url = APP_URL) => ({
+/* mrkdwn treats &, <, > as syntax (link markup, entity escapes). Anything a
+   person typed themselves has to be escaped before it goes into a mrkdwn
+   field, or e.g. "<https://x|y>" in a topic renders as a live link. */
+const escapeMrkdwn = (text) =>
+  String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/* `actionId` set (topic, upcoming) reuses a Home tab handler that already
+   opens the right modal — Talk or Prepare — so the button works in Slack
+   with no new server code. Left unset, it falls back to the external link:
+   feedback/request/development/action/wrap have no Slack modal built yet. */
+const openButton = (label = "Open Performance Pulse", actionId = null, url = APP_URL) => ({
   type: "actions",
   elements: [{
     type: "button",
     text: { type: "plain_text", text: label, emoji: true },
     style: "primary",
-    url,
-    action_id: "open_app"
+    action_id: actionId || "open_app",
+    ...(actionId ? {} : { url })
   }]
 });
 
@@ -54,16 +64,16 @@ const privacyFooter = () => context(
 
 /**
  * Assemble a standard ping.
- * @param {{fallback:string, line:string, meta:string, button:string}} parts
+ * @param {{fallback:string, line:string, meta:string, button:string, actionId?:string}} parts
  */
-function ping({ fallback, line, meta, button }) {
+function ping({ fallback, line, meta, button, actionId }) {
   return {
     text: fallback,                       // shown in notifications and by screen readers
     blocks: [
       header(),
       section(line),
       context(meta),
-      openButton(button),
+      openButton(button, actionId),
       divider(),
       privacyFooter()
     ]
@@ -86,7 +96,8 @@ const PINGS = {
     fallback: `${who(from)} added a topic to your 1:1 agenda`,
     line: `*${who(from)}* added a topic to your 1:1 agenda.`,
     meta: `${plural(openTopics, "topic")} open  ·  Next 1:1 ${when}`,
-    button: "See the agenda"
+    button: "See the agenda",
+    actionId: "start_talk"
   }),
 
   upcoming: ({ from, openTopics = 0, when = "not in the diary yet" }) => ping({
@@ -95,7 +106,8 @@ const PINGS = {
     meta: openTopics
       ? `${plural(openTopics, "topic")} waiting  ·  Worth ten minutes of prep`
       : "Nothing on the agenda yet",
-    button: "Prepare for it"
+    button: "Prepare for it",
+    actionId: "start_checkin"
   }),
 
   feedback: ({ from }) => ping({
@@ -389,7 +401,7 @@ function talkModal({ topics }) {
 
   const row = (t) => ({
     type: "section",
-    text: { type: "mrkdwn", text: t.text + (t.category ? `\n_${t.category}_` : "") },
+    text: { type: "mrkdwn", text: escapeMrkdwn(t.text) + (t.category ? `\n_${escapeMrkdwn(t.category)}_` : "") },
     accessory: {
       type: "overflow",
       action_id: "talk_topic_action",

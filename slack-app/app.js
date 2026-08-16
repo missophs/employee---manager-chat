@@ -20,7 +20,9 @@
 require("dotenv").config();
 
 const { App } = require("@slack/bolt");
-const { build, PINGS, homeTab, addTopicModal } = require("./blocks");
+const { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal } = require("./blocks");
+const store = require("./lib/store");
+const { queueFor } = require("./lib/questions");
 
 /* ---------- config ---------- */
 
@@ -64,16 +66,15 @@ const app = new App({
   socketMode: true
 });
 
-/* ---------- in-memory demo state ----------
-   A real deployment replaces this with a database. Deliberately not written
-   to disk here: this is a prototype, and performance data should not pile up
-   on a laptop by accident. */
+app.error(async (error) => {
+  console.error("Unhandled Bolt error:", error);
+});
 
-const state = {
-  topics: [],
-  actions: [],
-  plans: []
-};
+/* Storage is the same lib/store.js the cloud version uses — it falls back to
+   an in-memory Map automatically when no Redis env vars are set, which is
+   exactly right for local testing: real Prepare/Talk/Wrap-up behavior, wiped
+   on every restart instead of piling up on a laptop by accident. */
+const TEAM_ID = "local";
 
 /* Who is paired with whom. A real deployment reads this from the database;
    here it is the one pair in this workspace. Without it nobody can be
@@ -99,23 +100,25 @@ const NAMES = {
   U0BPSUWKGRK: "Monte Montoya"
 };
 
-/* Counts for one person only. Anything the other person wrote is theirs, so
-   it is filtered out here rather than summed across the workspace. */
-const summary = (name, userId) => {
-  const mine = (list) => list.filter((item) => item.by === userId);
+/* Counts for one person only, read from the same store Talk and Wrap-up use
+   — so what Home tab shows always matches what those modals actually have. */
+async function summary(name, userId) {
+  const [counts, addedQuestions, draft] = await Promise.all([
+    store.getCounts(TEAM_ID, userId),
+    store.getAddedQuestions(TEAM_ID, userId),
+    store.getCheckin(TEAM_ID, userId)
+  ]);
   return {
     name,
     role: ROLES[userId] || "employee",
-    openTopics: mine(state.topics).length,
-    openActions: mine(state.actions).length,
-    plans: mine(state.plans).length,
+    openTopics: counts.openTopics,
+    openActions: counts.openActions,
+    plans: counts.plans,
     when: null,
-    /* Which suggested questions this person has already tapped "Add" on —
-       lets the Home tab show them as added instead of re-adding on a
-       second tap. */
-    addedQuestions: mine(state.topics).map((t) => t.text).filter(Boolean)
+    addedQuestions,
+    checkin: draft ? { step: draft.step, total: draft.queue.length } : null
   };
-};
+}
 
 /* ---------- App Home: the tab in the sidebar ---------- */
 
@@ -126,7 +129,7 @@ app.event("app_home_opened", async ({ event, client, logger }) => {
     const name = profile.user?.profile?.first_name || profile.user?.name || "there";
     await client.views.publish({
       user_id: event.user,
-      view: homeTab(summary(name, event.user))
+      view: homeTab(await summary(name, event.user))
     });
   } catch (error) {
     logger.error("Could not publish App Home:", error);
@@ -152,24 +155,30 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
    it's already one of the app's own prompts). `text` is only set for the
    suggested-question path — it's how the Home tab recognizes which ones to
    render as already added. */
-async function addTopicAndNotify(client, body, category, logger, text = null) {
-  state.topics.push({ category, text, by: body.user.id, at: new Date().toISOString() });
+async function addTopicAndNotify(client, body, category, logger, text) {
+  await store.addTopic(TEAM_ID, body.user.id, text, category);
+  if (category === "Suggested question") await store.addQuestion(TEAM_ID, body.user.id, text);
 
   const profile = await client.users.info({ user: body.user.id });
   const name = profile.user?.profile?.first_name || profile.user?.name || "there";
-  await client.views.publish({
-    user_id: body.user.id,
-    view: homeTab(summary(name, body.user.id))
-  });
+  try {
+    await client.views.publish({
+      user_id: body.user.id,
+      view: homeTab(await summary(name, body.user.id))
+    });
+  } catch (error) {
+    logger.error("Topic was saved but the Home tab could not refresh:", error);
+  }
 
   /* Ping the other person. Kept in its own try: if the counterpart cannot be
      reached, that must not cost the author the confirmation below. */
   const other = counterpartOf(body.user.id);
   if (other) {
     try {
+      const counts = await store.getCounts(TEAM_ID, body.user.id);
       await notify(other, "topic", {
         from: name,
-        openTopics: state.topics.filter((t) => t.by === body.user.id).length,
+        openTopics: counts.openTopics,
         when: "not in the diary yet"
       });
     } catch (error) {
@@ -177,14 +186,18 @@ async function addTopicAndNotify(client, body, category, logger, text = null) {
     }
   }
 
-  await client.chat.postMessage({
-    channel: body.user.id,
-    text: "Added to your 1:1 agenda.",
-    blocks: [
-      { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
-      { type: "context", elements: [{ type: "mrkdwn", text: `${category} · only your manager can see this` }] }
-    ]
-  });
+  try {
+    await client.chat.postMessage({
+      channel: body.user.id,
+      text: "Added to your 1:1 agenda.",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Added to your 1:1 agenda." } },
+        { type: "context", elements: [{ type: "mrkdwn", text: `${category} · only your manager can see this` }] }
+      ]
+    });
+  } catch (error) {
+    logger.error("Topic was saved but the confirmation message failed to send:", error);
+  }
 }
 
 app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
@@ -205,7 +218,7 @@ app.view("add_topic_modal", async ({ ack, view, body, client, logger }) => {
 
   await ack();
   try {
-    await addTopicAndNotify(client, body, category || "Other", logger);
+    await addTopicAndNotify(client, body, category || "Other", logger, text);
   } catch (error) {
     logger.error("Could not handle the submission:", error);
   }
@@ -231,6 +244,156 @@ app.action("already_added", async ({ ack }) => { await ack(); });
    so the button does not show a warning triangle. */
 app.action("open_app", async ({ ack }) => { await ack(); });
 app.action("open_handbook", async ({ ack }) => { await ack(); });
+
+/* ---------- the check-in: one question per modal screen ---------- */
+
+app.action("start_checkin", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    const role = ROLES[body.user.id] || "employee";
+    const draft = await store.startCheckin(TEAM_ID, body.user.id, role, queueFor(role));
+    await client.views.open({ trigger_id: body.trigger_id, view: checkinModal(draft) });
+  } catch (error) {
+    logger.error("Could not open the check-in:", error);
+  }
+});
+
+app.action("checkin_back", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    const { step } = JSON.parse(body.actions[0].value);
+    const draft = await store.goBackCheckin(TEAM_ID, body.user.id, step);
+    if (!draft) return;
+    await client.views.update({ view_id: body.view.id, hash: body.view.hash, view: checkinModal(draft) });
+  } catch (error) {
+    logger.error("Could not go back a question:", error);
+  }
+});
+
+app.view("checkin_step_modal", async ({ ack, view, body, client, logger }) => {
+  let step;
+  try {
+    ({ step } = JSON.parse(view.private_metadata || "{}"));
+  } catch (error) {
+    logger.error("Could not parse check-in metadata:", error);
+    await ack();
+    return;
+  }
+  const text = view.state.values.answer?.text?.value?.trim() || "";
+  try {
+    const result = await store.submitCheckinAnswer(TEAM_ID, body.user.id, step, text);
+    if (!result) { await ack(); return; }
+
+    if (!result.done) {
+      await ack({ response_action: "update", view: checkinModal(result) });
+      return;
+    }
+
+    await ack();
+    await client.chat.postMessage({
+      channel: body.user.id,
+      text: "Check-in saved.",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: Check-in saved." } },
+        { type: "context", elements: [{ type: "mrkdwn",
+          text: `${result.queue.length} question${result.queue.length === 1 ? "" : "s"} · only you and your manager could ever see this` }] }
+      ]
+    });
+  } catch (error) {
+    logger.error("Could not save the check-in step:", error);
+  }
+});
+
+/* ---------- Talk: the live agenda ---------- */
+
+app.action("start_talk", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    const topics = await store.getTopics(TEAM_ID, body.user.id);
+    await client.views.open({ trigger_id: body.trigger_id, view: talkModal({ topics }) });
+  } catch (error) {
+    logger.error("Could not open Talk:", error);
+  }
+});
+
+app.action("talk_topic_action", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    const [kind, idStr] = body.actions[0].selected_option.value.split(":");
+    const topicId = Number(idStr);
+    if (!Number.isFinite(topicId)) { logger.error("Malformed topic action value:", body.actions[0].selected_option.value); return; }
+    const userId = body.user.id;
+
+    if (kind === "action") {
+      const topics = await store.getTopics(TEAM_ID, userId);
+      const topic = topics.find((t) => t.id === topicId);
+      if (topic) await store.addAction(TEAM_ID, userId, topic.text);
+      await store.setTopicStatus(TEAM_ID, userId, topicId, "discussed");
+    } else {
+      await store.setTopicStatus(TEAM_ID, userId, topicId, kind);
+    }
+
+    const topics = await store.getTopics(TEAM_ID, userId);
+    await client.views.update({ view_id: body.view.id, hash: body.view.hash, view: talkModal({ topics }) });
+  } catch (error) {
+    logger.error("Could not update the topic:", error);
+  }
+});
+
+/* ---------- Wrap up: closes out the conversation ---------- */
+
+app.action("start_wrap", async ({ ack, body, client, logger }) => {
+  await ack();
+  try {
+    await client.views.open({ trigger_id: body.trigger_id, view: wrapModal() });
+  } catch (error) {
+    logger.error("Could not open Wrap up:", error);
+  }
+});
+
+app.view("wrap_modal", async ({ ack, view, body, client, logger }) => {
+  const v = view.state.values;
+  const val = (blockId) => v[blockId]?.value?.value?.trim() || "";
+  const wrapSummary = {
+    discussed: val("discussed"),
+    agreed: val("agreed"),
+    revisit: val("revisit"),
+    start: val("start"),
+    stop: val("stop"),
+    cont: val("continue"),
+    nextDate: v.nextDate?.value?.selected_date || null
+  };
+  await ack();
+  try {
+    const userId = body.user.id;
+    await store.saveWrapUp(TEAM_ID, userId, wrapSummary);
+
+    const actionText = val("action");
+    if (actionText) await store.addAction(TEAM_ID, userId, actionText);
+
+    await client.chat.postMessage({
+      channel: userId,
+      text: "Your 1:1 is wrapped up.",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn",
+          text: ":white_check_mark: Your 1:1 is wrapped up. Discussed topics are filed away; parking lot items stay on the agenda." } }
+      ]
+    });
+
+    const other = counterpartOf(userId);
+    if (other) {
+      try {
+        const profile = await client.users.info({ user: userId });
+        const from = profile.user?.profile?.first_name || profile.user?.name || "there";
+        await notify(other, "wrap", { from });
+      } catch (error) {
+        logger.error("Could not notify the counterpart:", error);
+      }
+    }
+  } catch (error) {
+    logger.error("Could not save the wrap-up:", error);
+  }
+});
 
 /* ---------- /pulse: send yourself any ping, for testing ---------- */
 
