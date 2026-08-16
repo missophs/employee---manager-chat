@@ -11,10 +11,18 @@
  * What gets stored:
  *   install:<team>         the workspace's OAuth tokens (needed to send anything)
  *   pair:<team>:<user>     who their 1:1 partner is + which side they're on
- *   topics:<team>:<user>   the live agenda — real text, now (see below)
- *   actions:<team>:<user>  actions that came out of a 1:1 — real text
- *   history:<team>:<user>  past wrap-up summaries — real text
- *   checkin:<team>:<user>  an in-progress check-in draft — real text
+ *   topics:<team>:<user>   the live agenda — real text, now (see below).
+ *                          Always keyed by the EMPLOYEE side of the pair —
+ *                          both people read/write the same bucket, resolved
+ *                          via sharedOwnerId() below.
+ *   actions:<team>:<user>  actions that came out of a 1:1 — real text. Same
+ *                          employee-keyed sharing as topics.
+ *   history:<team>:<user>  past wrap-up summaries — real text. Same
+ *                          employee-keyed sharing as topics.
+ *   checkin:<team>:<user>  an in-progress check-in draft — real text. NOT
+ *                          shared: each person answers their own separate
+ *                          questionnaire (employee vs. manager questions),
+ *                          so this stays keyed by whoever is actually typing.
  *
  * Earlier this only ever stored counts, never the actual words anyone typed
  * — the website (client-only, nothing server-side at all) was where real
@@ -155,6 +163,45 @@ async function getPair(teamId, userId) {
   return get(pairKey(teamId, userId));
 }
 
+/* ---------- shared ownership: who a pair's agenda/actions/history live under ----------
+   Topics, actions, and wrap-up history used to be keyed by whoever was
+   acting (body.user.id) — which meant they were never actually shared: an
+   employee's topics lived under the employee's own key, a manager's Talk
+   modal read the manager's own (different, unrelated) key, and neither
+   side could see what the other added. Every pair has exactly one
+   employee, so that person's ID is now the single canonical bucket both
+   sides read and write. */
+
+async function sharedOwnerId(teamId, userId) {
+  const pair = await getPair(teamId, userId);
+  return pair && pair.role === "manager" ? pair.partner : userId;
+}
+
+/** One-time cleanup for a manager who already saved something under their
+    own key before this fix existed: fold it into the canonical (employee)
+    bucket instead of leaving it invisible forever. Guarded by a marker key
+    so repeated calls (every click) don't re-merge it. No-ops instantly for
+    an employee (ownerId === userId) or once nothing legacy is left. */
+async function migrateLegacyOnce(teamId, userId, ownerId, keyFn, merge) {
+  if (userId === ownerId) return;
+  const legacyKey = keyFn(teamId, userId);
+  const markerKey = "migrated:" + legacyKey;
+  if (await get(markerKey)) return;
+  try {
+    const legacy = await get(legacyKey);
+    if (legacy && legacy.length) {
+      const ownerKey = keyFn(teamId, ownerId);
+      const canonical = (await get(ownerKey)) || [];
+      await set(ownerKey, merge(canonical, legacy));
+      console.warn(`[store] Migrated ${legacy.length} legacy entr${legacy.length === 1 ? "y" : "ies"} from ${legacyKey} into ${ownerKey}`);
+    }
+  } catch (error) {
+    console.error("[store] Legacy migration failed for", legacyKey, "— leaving it in place:", error);
+    return; // don't set the marker; try again next call rather than giving up silently
+  }
+  await set(markerKey, true);
+}
+
 /* ---------- topics: the live 1:1 agenda ----------
    Real records now, not just a count — Talk needs to mark each one
    discussed or parked, and Wrap-up needs to know which to clear. */
@@ -165,28 +212,44 @@ const topicsKey = (teamId, userId) => "topics:" + teamId + ":" + userId;
    such limit and returns the same result for every normal-sized list. */
 const nextId = (list) => list.reduce((max, x) => Math.max(max, x.id), 0) + 1;
 
+/** Renumbers legacy entries past whatever's already in the canonical list,
+    so two people's ids never collide when a manager's stray data merges in. */
+const mergeWithFreshIds = (canonical, legacy) => {
+  let next = nextId(canonical);
+  return canonical.concat(legacy.map((item) => ({ ...item, id: next++ })));
+};
+
+async function topicsOwner(teamId, userId) {
+  const ownerId = await sharedOwnerId(teamId, userId);
+  await migrateLegacyOnce(teamId, userId, ownerId, topicsKey, mergeWithFreshIds);
+  return ownerId;
+}
+
 async function getTopics(teamId, userId) {
-  return (await get(topicsKey(teamId, userId))) || [];
+  const ownerId = await topicsOwner(teamId, userId);
+  return (await get(topicsKey(teamId, ownerId))) || [];
 }
 
 async function addTopic(teamId, userId, text, category) {
-  return withLock(topicsKey(teamId, userId), async () => {
-    const topics = await getTopics(teamId, userId);
+  const ownerId = await topicsOwner(teamId, userId);
+  return withLock(topicsKey(teamId, ownerId), async () => {
+    const topics = (await get(topicsKey(teamId, ownerId))) || [];
     const topic = { id: nextId(topics), text, category, status: "open", at: Date.now() };
     topics.push(topic);
-    await set(topicsKey(teamId, userId), topics);
+    await set(topicsKey(teamId, ownerId), topics);
     return topic;
   });
 }
 
 /** status is "open" | "discussed" | "parking". */
 async function setTopicStatus(teamId, userId, topicId, status) {
-  return withLock(topicsKey(teamId, userId), async () => {
-    const topics = await getTopics(teamId, userId);
+  const ownerId = await topicsOwner(teamId, userId);
+  return withLock(topicsKey(teamId, ownerId), async () => {
+    const topics = (await get(topicsKey(teamId, ownerId))) || [];
     const topic = topics.find((t) => t.id === topicId);
     if (topic) {
       topic.status = status;
-      await set(topicsKey(teamId, userId), topics);
+      await set(topicsKey(teamId, ownerId), topics);
     }
     return topic;
   });
@@ -195,10 +258,11 @@ async function setTopicStatus(teamId, userId, topicId, status) {
 /** Wrap-up "closes out" a conversation: discussed topics are filed away,
     open and parked topics stay on the agenda for next time. */
 async function clearDiscussedTopics(teamId, userId) {
-  return withLock(topicsKey(teamId, userId), async () => {
-    const topics = await getTopics(teamId, userId);
+  const ownerId = await topicsOwner(teamId, userId);
+  return withLock(topicsKey(teamId, ownerId), async () => {
+    const topics = (await get(topicsKey(teamId, ownerId))) || [];
     const remaining = topics.filter((t) => t.status !== "discussed");
-    await set(topicsKey(teamId, userId), remaining);
+    await set(topicsKey(teamId, ownerId), remaining);
     return remaining;
   });
 }
@@ -207,16 +271,24 @@ async function clearDiscussedTopics(teamId, userId) {
 
 const actionsKey = (teamId, userId) => "actions:" + teamId + ":" + userId;
 
+async function actionsOwner(teamId, userId) {
+  const ownerId = await sharedOwnerId(teamId, userId);
+  await migrateLegacyOnce(teamId, userId, ownerId, actionsKey, mergeWithFreshIds);
+  return ownerId;
+}
+
 async function getActions(teamId, userId) {
-  return (await get(actionsKey(teamId, userId))) || [];
+  const ownerId = await actionsOwner(teamId, userId);
+  return (await get(actionsKey(teamId, ownerId))) || [];
 }
 
 async function addAction(teamId, userId, text) {
-  return withLock(actionsKey(teamId, userId), async () => {
-    const actions = await getActions(teamId, userId);
+  const ownerId = await actionsOwner(teamId, userId);
+  return withLock(actionsKey(teamId, ownerId), async () => {
+    const actions = (await get(actionsKey(teamId, ownerId))) || [];
     const action = { id: nextId(actions), text, done: false, at: Date.now() };
     actions.push(action);
-    await set(actionsKey(teamId, userId), actions);
+    await set(actionsKey(teamId, ownerId), actions);
     return action;
   });
 }
@@ -224,9 +296,17 @@ async function addAction(teamId, userId, text) {
 /* ---------- history: past wrap-up summaries ---------- */
 
 const historyKey = (teamId, userId) => "history:" + teamId + ":" + userId;
+const mergeByAppending = (canonical, legacy) => canonical.concat(legacy);
+
+async function historyOwner(teamId, userId) {
+  const ownerId = await sharedOwnerId(teamId, userId);
+  await migrateLegacyOnce(teamId, userId, ownerId, historyKey, mergeByAppending);
+  return ownerId;
+}
 
 async function getHistory(teamId, userId) {
-  return (await get(historyKey(teamId, userId))) || [];
+  const ownerId = await historyOwner(teamId, userId);
+  return (await get(historyKey(teamId, ownerId))) || [];
 }
 
 /** Keeps the most recent summaries only — real Redis values have a size
@@ -236,12 +316,13 @@ const HISTORY_LIMIT = 200;
 /** Saves the summary, then closes out the conversation the same way the
     website does: discussed topics are cleared, parking lot stays. */
 async function saveWrapUp(teamId, userId, summary) {
-  const entry = await withLock(historyKey(teamId, userId), async () => {
-    const history = await getHistory(teamId, userId);
+  const ownerId = await historyOwner(teamId, userId);
+  const entry = await withLock(historyKey(teamId, ownerId), async () => {
+    const history = (await get(historyKey(teamId, ownerId))) || [];
     const e = { ...summary, at: Date.now() };
     history.push(e);
     if (history.length > HISTORY_LIMIT) history.splice(0, history.length - HISTORY_LIMIT);
-    await set(historyKey(teamId, userId), history);
+    await set(historyKey(teamId, ownerId), history);
     return e;
   });
   await clearDiscussedTopics(teamId, userId);
