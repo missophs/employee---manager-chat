@@ -351,7 +351,11 @@ function checkinModal({ role, step, queue, answers }) {
       section(`*${question.q}*`),
       {
         type: "input",
-        block_id: "answer",
+        // block_id carries the step number so Slack treats each question's
+        // field as distinct — with a fixed block_id the client preserves
+        // whatever was typed on the previous step instead of applying the
+        // new initial_value, and answers bleed across questions.
+        block_id: `answer_${step}`,
         optional: true,
         label: { type: "plain_text", text: "Your answer" },
         element: {

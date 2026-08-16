@@ -337,7 +337,7 @@ app.view("checkin_step_modal", async ({ ack, view, body, context, client, logger
     await ack();
     return;
   }
-  const text = view.state.values.answer?.text?.value?.trim() || "";
+  const text = view.state.values[`answer_${step}`]?.text?.value?.trim() || "";
   try {
     const result = await store.submitCheckinAnswer(context.teamId, body.user.id, step, text);
     if (!result) { await ack(); return; }
