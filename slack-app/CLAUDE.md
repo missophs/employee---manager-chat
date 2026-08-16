@@ -26,6 +26,20 @@ of those modals means also flipping its `actionId` in `blocks.js`.
 
 ## Storage discipline (`lib/store.js`)
 
+- **`topics:*`, `actions:*`, and `history:*` are shared, not per-user.** They're keyed by
+  the employee side of a pair (`sharedOwnerId()`/`topicsOwner()`/`actionsOwner()`/
+  `historyOwner()`), and both people in a 1:1 read/write the same bucket. This was a real,
+  shipped bug: everything used to be keyed by whoever was acting, so a manager's own Talk
+  modal read a completely different, empty bucket than the one their employee had just added
+  a topic to — the "shared agenda" didn't actually share anything. **If you add a new data
+  type that both people in a pair need to see, key it through the same owner-resolution
+  pattern — don't key it by `userId` directly, or you'll reintroduce this bug.** `checkin:*`
+  is the one deliberate exception: each person answers their own separate questionnaire
+  (employee vs. manager questions), so it stays keyed by whoever is actually typing.
+- Any new shared data type also needs a `migrateLegacyOnce`-style one-time merge if it's
+  possible for data to already exist under the wrong (non-canonical) key — see how
+  `topicsOwner`/`actionsOwner`/`historyOwner` do it. Don't silently drop pre-existing data
+  when changing how something is keyed.
 - Every read-modify-write on a list/object key (`topics:*`, `actions:*`, `history:*`,
   `checkin:*`, `added:*`) must go through `withLock(key, fn)`. It's cheap and it's what stops
   a fast double-tap from silently dropping data.
