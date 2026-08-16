@@ -120,6 +120,19 @@ async function summary(name, userId) {
   };
 }
 
+/* Refreshes someone's Home tab from current storage — used after any action
+   that changes topics/actions/checkin state so the tab (open-topic counts,
+   the "Prepare — Continue" banner) doesn't go stale until the next natural
+   republish. api/index.js does this after the same three actions; this was
+   missing here, so the local Home tab could show old counts after using
+   Talk or finishing Prepare/Wrap-up. */
+async function refreshHome(client, userId) {
+  await client.views.publish({
+    user_id: userId,
+    view: homeTab(await summary(NAMES[userId] || "there", userId))
+  });
+}
+
 /* ---------- App Home: the tab in the sidebar ---------- */
 
 app.event("app_home_opened", async ({ event, client, logger }) => {
@@ -290,6 +303,11 @@ app.view("checkin_step_modal", async ({ ack, view, body, client, logger }) => {
     }
 
     await ack();
+    try {
+      await refreshHome(client, body.user.id);
+    } catch (refreshError) {
+      logger.error("Check-in was saved but the Home tab could not refresh:", refreshError);
+    }
     await client.chat.postMessage({
       channel: body.user.id,
       text: "Check-in saved.",
@@ -335,6 +353,11 @@ app.action("talk_topic_action", async ({ ack, body, client, logger }) => {
 
     const topics = await store.getTopics(TEAM_ID, userId);
     await client.views.update({ view_id: body.view.id, hash: body.view.hash, view: talkModal({ topics }) });
+    try {
+      await refreshHome(client, userId);
+    } catch (refreshError) {
+      logger.error("Topic updated but the Home tab could not refresh:", refreshError);
+    }
   } catch (error) {
     logger.error("Could not update the topic:", error);
   }
@@ -371,6 +394,11 @@ app.view("wrap_modal", async ({ ack, view, body, client, logger }) => {
     const actionText = val("action");
     if (actionText) await store.addAction(TEAM_ID, userId, actionText);
 
+    try {
+      await refreshHome(client, userId);
+    } catch (refreshError) {
+      logger.error("Wrap-up was saved but the Home tab could not refresh:", refreshError);
+    }
     await client.chat.postMessage({
       channel: userId,
       text: "Your 1:1 is wrapped up.",

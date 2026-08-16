@@ -79,7 +79,13 @@ const locks = new Map();
 function withLock(key, fn) {
   const prior = locks.get(key) || Promise.resolve();
   const settled = prior.then(fn, fn);
-  locks.set(key, settled.then(() => {}, () => {}));
+  const cleared = settled.then(() => {}, () => {});
+  locks.set(key, cleared);
+  /* Free the entry once nothing is queued behind it — otherwise `locks`
+     grows by one entry per distinct key for the life of the process, which
+     matters in app.js (long-running Socket Mode), not just the short-lived
+     serverless instances. Only delete if nothing newer has replaced us. */
+  cleared.then(() => { if (locks.get(key) === cleared) locks.delete(key); });
   return settled;
 }
 
@@ -154,7 +160,10 @@ async function getPair(teamId, userId) {
    discussed or parked, and Wrap-up needs to know which to clear. */
 
 const topicsKey = (teamId, userId) => "topics:" + teamId + ":" + userId;
-const nextId = (list) => (list.length ? Math.max(...list.map((x) => x.id)) + 1 : 1);
+/* A loop instead of Math.max(...list.map(...)) — spreading a large array
+   into Math.max can throw "Maximum call stack size exceeded"; a loop has no
+   such limit and returns the same result for every normal-sized list. */
+const nextId = (list) => list.reduce((max, x) => Math.max(max, x.id), 0) + 1;
 
 async function getTopics(teamId, userId) {
   return (await get(topicsKey(teamId, userId))) || [];

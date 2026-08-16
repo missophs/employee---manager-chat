@@ -48,6 +48,20 @@ if (MISSING.length) {
   return;
 }
 
+/* Falling back to a fixed string here would mean the OAuth install flow's
+   CSRF protection runs on a secret that's sitting in the public GitHub repo
+   — anyone can read it. Warn loudly rather than fail the whole app (an
+   already-installed workspace doesn't touch this at runtime, only new
+   installs do), so this surfaces without breaking what's currently live. */
+if (!process.env.SLACK_STATE_SECRET) {
+  console.warn(
+    "[api/index] SLACK_STATE_SECRET is not set — falling back to a fixed value " +
+    "that is checked into the repo, which weakens CSRF protection on the install " +
+    "flow. Set SLACK_STATE_SECRET in Vercel → Project → Settings → Environment " +
+    "Variables to any long random string."
+  );
+}
+
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   clientId: process.env.SLACK_CLIENT_ID,
@@ -187,13 +201,22 @@ app.view("pick_partner_modal", async ({ ack, view, body, context, client, logger
   await ack();
   try {
     await store.setPair(context.teamId, body.user.id, partner, myRole || "employee");
+  } catch (error) {
+    logger.error("Could not save the pair:", error);
+    return;
+  }
+  try {
     await publishHome(client, context.teamId, body.user.id);
+  } catch (error) {
+    logger.error("Pair was saved but the Home tab could not refresh:", error);
+  }
+  try {
     await client.chat.postMessage({
       channel: body.user.id,
       text: "You're set up. Your 1:1 pings will go between you and <@" + partner + "> only."
     });
   } catch (error) {
-    logger.error("Could not save the pair:", error);
+    logger.error("Pair was saved but the confirmation message failed to send:", error);
   }
 });
 
@@ -338,17 +361,28 @@ app.view("checkin_step_modal", async ({ ack, view, body, context, client, logger
     return;
   }
   const text = view.state.values[`answer_${step}`]?.text?.value?.trim() || "";
+  let result;
   try {
-    const result = await store.submitCheckinAnswer(context.teamId, body.user.id, step, text);
-    if (!result) { await ack(); return; }
-
-    if (!result.done) {
-      await ack({ response_action: "update", view: checkinModal(result) });
-      return;
-    }
-
+    result = await store.submitCheckinAnswer(context.teamId, body.user.id, step, text);
+  } catch (error) {
+    logger.error("Could not save the check-in step:", error);
     await ack();
+    return;
+  }
+  if (!result) { await ack(); return; }
+
+  if (!result.done) {
+    await ack({ response_action: "update", view: checkinModal(result) });
+    return;
+  }
+
+  await ack();
+  try {
     await publishHome(client, context.teamId, body.user.id);
+  } catch (error) {
+    logger.error("Check-in was saved but the Home tab could not refresh:", error);
+  }
+  try {
     await client.chat.postMessage({
       channel: body.user.id,
       text: "Check-in saved.",
@@ -359,7 +393,7 @@ app.view("checkin_step_modal", async ({ ack, view, body, context, client, logger
       ]
     });
   } catch (error) {
-    logger.error("Could not save the check-in step:", error);
+    logger.error("Check-in was saved but the confirmation message failed to send:", error);
   }
 });
 
@@ -424,14 +458,22 @@ app.view("wrap_modal", async ({ ack, view, body, context, client, logger }) => {
     nextDate: v.nextDate?.value?.selected_date || null
   };
   await ack();
+  const teamId = context.teamId, userId = body.user.id;
   try {
-    const teamId = context.teamId, userId = body.user.id;
     await store.saveWrapUp(teamId, userId, summary);
-
     const actionText = val("action");
     if (actionText) await store.addAction(teamId, userId, actionText);
+  } catch (error) {
+    logger.error("Could not save the wrap-up:", error);
+    return;
+  }
 
+  try {
     await publishHome(client, teamId, userId);
+  } catch (error) {
+    logger.error("Wrap-up was saved but the Home tab could not refresh:", error);
+  }
+  try {
     await client.chat.postMessage({
       channel: userId,
       text: "Your 1:1 is wrapped up.",
@@ -440,19 +482,19 @@ app.view("wrap_modal", async ({ ack, view, body, context, client, logger }) => {
           text: ":white_check_mark: Your 1:1 is wrapped up. Discussed topics are filed away; parking lot items stay on the agenda." } }
       ]
     });
-
-    const pair = await store.getPair(teamId, userId);
-    if (pair) {
-      try {
-        const from = await displayName(client, userId);
-        const payload = build("wrap", { from });
-        await client.chat.postMessage({ channel: pair.partner, text: payload.text, blocks: payload.blocks });
-      } catch (error) {
-        logger.error("Could not notify the counterpart:", error);
-      }
-    }
   } catch (error) {
-    logger.error("Could not save the wrap-up:", error);
+    logger.error("Wrap-up was saved but the confirmation message failed to send:", error);
+  }
+
+  const pair = await store.getPair(teamId, userId);
+  if (pair) {
+    try {
+      const from = await displayName(client, userId);
+      const payload = build("wrap", { from });
+      await client.chat.postMessage({ channel: pair.partner, text: payload.text, blocks: payload.blocks });
+    } catch (error) {
+      logger.error("Could not notify the counterpart:", error);
+    }
   }
 });
 

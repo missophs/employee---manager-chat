@@ -25,7 +25,8 @@ function buildExportRows(topics, actions, history) {
       h.revisit ? "Revisit: " + h.revisit : "",
       h.start ? "Start: " + h.start : "",
       h.stop ? "Stop: " + h.stop : "",
-      h.cont ? "Continue: " + h.cont : ""
+      h.cont ? "Continue: " + h.cont : "",
+      h.nextDate ? "Next 1:1: " + fmt(h.nextDate) : ""
     ].filter(Boolean).join(" | ");
     rows.push(["1:1 update", "1:1 summary", detail, "", "", fmt(h.at)]);
   });
@@ -35,10 +36,20 @@ function buildExportRows(topics, actions, history) {
   return rows;
 }
 
+/* Excel/Sheets runs a cell as a formula if it starts with =, +, -, or @ —
+   so a topic or action typed as e.g. "=HYPERLINK(...)" would execute on
+   open instead of displaying as text. Prefixing with a tab neutralizes it
+   without changing what the cell visibly shows. */
+const FORMULA_PREFIX = /^[=+\-@]/;
+const escapeCsvCell = (value) => {
+  const s = String(value);
+  return FORMULA_PREFIX.test(s) ? "\t" + s : s;
+};
+
 /** BOM so Excel reads accented characters correctly — matches the website. */
 function toCsv(rows) {
   const body = rows
-    .map((r) => r.map((cell) => '"' + String(cell).replace(/"/g, '""') + '"').join(","))
+    .map((r) => r.map((cell) => '"' + escapeCsvCell(cell).replace(/"/g, '""') + '"').join(","))
     .join("\r\n");
   return "﻿" + body;
 }
