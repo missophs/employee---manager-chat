@@ -29,7 +29,7 @@ const APP_URL = process.env.APP_URL || "https://missophs.github.io/employee---ma
 /* Deploys are allowed to happen before the Slack secrets are configured.
    Without them, serve a page that says exactly what is missing instead of
    crashing — so the very first deploy already shows something helpful. */
-const MISSING = ["SLACK_SIGNING_SECRET", "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"]
+const MISSING = ["SLACK_SIGNING_SECRET", "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_STATE_SECRET"]
   .filter((k) => !process.env[k]);
 if (MISSING.length) {
   module.exports = (req, res) => {
@@ -41,32 +41,25 @@ if (MISSING.length) {
       "<p>The app is deployed, but these settings are still missing in " +
       "Vercel &rarr; Project &rarr; Settings &rarr; Environment Variables:</p>" +
       "<ul>" + MISSING.map((k) => "<li><code>" + k + "</code></li>").join("") + "</ul>" +
-      "<p>They come from api.slack.com/apps &rarr; your app &rarr; Basic Information. " +
+      "<p><code>SLACK_SIGNING_SECRET</code>, <code>SLACK_CLIENT_ID</code>, and " +
+      "<code>SLACK_CLIENT_SECRET</code> come from api.slack.com/apps &rarr; your app " +
+      "&rarr; Basic Information. <code>SLACK_STATE_SECRET</code> is any long random " +
+      "string you make up yourself &mdash; it protects the install flow. " +
       "After adding them, redeploy.</p></body>"
     );
   };
   return;
 }
 
-/* Falling back to a fixed string here would mean the OAuth install flow's
-   CSRF protection runs on a secret that's sitting in the public GitHub repo
-   — anyone can read it. Warn loudly rather than fail the whole app (an
-   already-installed workspace doesn't touch this at runtime, only new
-   installs do), so this surfaces without breaking what's currently live. */
-if (!process.env.SLACK_STATE_SECRET) {
-  console.warn(
-    "[api/index] SLACK_STATE_SECRET is not set — falling back to a fixed value " +
-    "that is checked into the repo, which weakens CSRF protection on the install " +
-    "flow. Set SLACK_STATE_SECRET in Vercel → Project → Settings → Environment " +
-    "Variables to any long random string."
-  );
-}
-
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   clientId: process.env.SLACK_CLIENT_ID,
   clientSecret: process.env.SLACK_CLIENT_SECRET,
-  stateSecret: process.env.SLACK_STATE_SECRET || "performance-pulse-install-state",
+  /* No fallback — a fixed fallback string here would mean the OAuth install
+     flow's CSRF protection ran on a secret sitting in the public GitHub
+     repo. MISSING above already guarantees this is set by the time the App
+     is constructed. */
+  stateSecret: process.env.SLACK_STATE_SECRET,
   scopes: ["chat:write", "commands", "users:read", "im:write", "files:write"],
   installationStore: store.installationStore,
   installerOptions: { directInstall: true },
