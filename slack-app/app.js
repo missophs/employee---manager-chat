@@ -105,7 +105,7 @@ const NAMES = {
 async function summary(name, userId) {
   const [counts, addedQuestions, draft] = await Promise.all([
     store.getCounts(TEAM_ID, userId),
-    store.getAddedQuestions(TEAM_ID, userId),
+    store.getAddedQuestions(TEAM_ID, userId, counterpartOf(userId)),
     store.getCheckin(TEAM_ID, userId)
   ]);
   return {
@@ -170,7 +170,7 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
    render as already added. */
 async function addTopicAndNotify(client, body, category, logger, text) {
   await store.addTopic(TEAM_ID, body.user.id, text, category);
-  if (category === "Suggested question") await store.addQuestion(TEAM_ID, body.user.id, text);
+  if (category === "Suggested question") await store.addQuestion(TEAM_ID, body.user.id, text, counterpartOf(body.user.id));
 
   const profile = await client.users.info({ user: body.user.id });
   const name = profile.user?.profile?.first_name || profile.user?.name || "there";

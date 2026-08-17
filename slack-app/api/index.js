@@ -99,10 +99,10 @@ async function displayName(client, userId) {
     hardcodes. Pairing is self-serve here: either person picks the other,
     says which side they're on, and both Home tabs update. */
 async function publishHome(client, teamId, userId) {
-  const [pair, counts, addedQuestions, draft] = await Promise.all([
-    store.getPair(teamId, userId),
+  const pair = await store.getPair(teamId, userId);
+  const [counts, addedQuestions, draft] = await Promise.all([
     store.getCounts(teamId, userId),
-    store.getAddedQuestions(teamId, userId),
+    store.getAddedQuestions(teamId, userId, pair?.partner),
     store.getCheckin(teamId, userId)
   ]);
   const name = await displayName(client, userId);
@@ -231,10 +231,12 @@ app.action("add_topic", async ({ ack, body, client, logger }) => {
    steps either way. */
 async function addTopicAndNotify({ client, context, body, category, text, logger }) {
   const topic = await store.addTopic(context.teamId, body.user.id, text, category);
+  const pair = await store.getPair(context.teamId, body.user.id);
   /* Only the suggested-question path counts toward "Added ✓" — a custom
      typed topic that happens to match a suggestion's wording shouldn't turn
-     that button green too. */
-  if (category === "Suggested question") await store.addQuestion(context.teamId, body.user.id, text);
+     that button green too. Scoped to the current partner so switching
+     partners doesn't leave stale "Added" checkmarks from the old one. */
+  if (category === "Suggested question") await store.addQuestion(context.teamId, body.user.id, text, pair?.partner);
 
   try {
     await publishHome(client, context.teamId, body.user.id);
@@ -243,7 +245,6 @@ async function addTopicAndNotify({ client, context, body, category, text, logger
   }
 
   const counts = await store.getCounts(context.teamId, body.user.id);
-  const pair = await store.getPair(context.teamId, body.user.id);
   if (pair) {
     try {
       const from = await displayName(client, body.user.id);

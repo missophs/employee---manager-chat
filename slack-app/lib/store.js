@@ -347,18 +347,22 @@ async function getCounts(teamId, userId) {
    manager), never anything a person wrote themselves. It only exists so the
    Home tab can show "Added" instead of "Add" on the ones already used. */
 
-const addedKey = (teamId, userId) => "added:" + teamId + ":" + userId;
+/* Scoped by partner too — "Added" means "already on THIS partner's agenda."
+   Without the partner in the key, switching partners left old questions
+   showing Added for someone who had never actually seen them. */
+const addedKey = (teamId, userId, partnerId) =>
+  "added:" + teamId + ":" + userId + (partnerId ? ":" + partnerId : "");
 
-async function getAddedQuestions(teamId, userId) {
-  return (await get(addedKey(teamId, userId))) || [];
+async function getAddedQuestions(teamId, userId, partnerId) {
+  return (await get(addedKey(teamId, userId, partnerId))) || [];
 }
 
-async function addQuestion(teamId, userId, text) {
-  return withLock(addedKey(teamId, userId), async () => {
-    const added = await getAddedQuestions(teamId, userId);
+async function addQuestion(teamId, userId, text, partnerId) {
+  return withLock(addedKey(teamId, userId, partnerId), async () => {
+    const added = await getAddedQuestions(teamId, userId, partnerId);
     if (!added.includes(text)) {
       added.push(text);
-      await set(addedKey(teamId, userId), added);
+      await set(addedKey(teamId, userId, partnerId), added);
     }
     return added;
   });
