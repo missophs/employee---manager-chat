@@ -332,7 +332,7 @@ app.action(/^open_record_/, async ({ ack, body, context, client, logger }) => {
 
 app.view("record_modal", async ({ ack, view, body, context, client, logger }) => {
   const type = view.private_metadata;
-  const text = view.state.values.text?.value?.trim();
+  const text = view.state.values.text?.value?.value?.trim();
   if (!text) {
     await ack({ response_action: "errors", errors: { text: "Say a few words first." } });
     return;
