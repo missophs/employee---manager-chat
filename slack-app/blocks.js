@@ -269,6 +269,22 @@ function homeTab({ name = "there", role = "employee", openTopics = 0, openAction
         ]
       },
       divider(),
+      section("*More*\nGoals, development, achievements, and feedback — shared with your 1:1 partner, never with HR."),
+      {
+        type: "actions",
+        elements: [
+          { type: "button", text: { type: "plain_text", text: "Goals", emoji: true }, action_id: "open_record_goal" },
+          { type: "button", text: { type: "plain_text", text: "Development", emoji: true }, action_id: "open_record_development" },
+          { type: "button", text: { type: "plain_text", text: "Achievements", emoji: true }, action_id: "open_record_achievement" },
+          { type: "button", text: { type: "plain_text", text: "Feedback", emoji: true }, action_id: "open_record_feedback" },
+          /* Manager-only: mirrors the website, where "Updates" is explicitly
+             manager-only notes about the employee, never the other way round. */
+          ...(role === "manager"
+            ? [{ type: "button", text: { type: "plain_text", text: "Updates", emoji: true }, action_id: "open_record_concern" }]
+            : [])
+        ]
+      },
+      divider(),
       {
         type: "section",
         text: { type: "mrkdwn", text: "*Export*\nYour agenda, actions, and past wrap-up summaries as a spreadsheet — sent to you as a file, right here." },
@@ -325,6 +341,66 @@ function addTopicModal() {
         "Only you and your manager can see this. It is not sent to HR, and it is " +
         "not posted in any channel."
       )
+    ]
+  };
+}
+
+/* The four record types the website has that Slack didn't: Goals,
+   Development, Achievements, Feedback, plus manager-only Updates. Each is a
+   simple running list — add one, see the rest — same shape as the website's
+   card-plus-list sections for these, minus Career's branching prompts and
+   Review prep's draft-building, which need their own design later. */
+const RECORD_TYPES = {
+  goal: {
+    title: "Goals", prompt: "New goal",
+    note: "Set together, revisited in your 1:1s."
+  },
+  development: {
+    title: "Development plans", prompt: "New development plan",
+    note: "Either of you can start one — managers recommend, employees request."
+  },
+  achievement: {
+    title: "Achievements", prompt: "New achievement",
+    note: "Capture the good stuff as it happens, so review time isn't a memory test."
+  },
+  feedback: {
+    title: "Feedback", prompt: "New feedback",
+    note: "Specific and kind beats vague."
+  },
+  concern: {
+    title: "Updates", prompt: "New update",
+    note: "Manager-only. Stays between the two of you — not sent to HR, no record anywhere else."
+  }
+};
+
+const fmtDate = (ts) => new Date(ts).toLocaleDateString();
+
+/**
+ * One modal per record type: existing entries at a glance, plus a field to
+ * add a new one. Submitting adds and reopens with the new entry included;
+ * closing (no submit) is just a way to review what's already there.
+ */
+function recordModal(type, records) {
+  const meta = RECORD_TYPES[type];
+  return {
+    type: "modal",
+    callback_id: "record_modal",
+    private_metadata: type,
+    title: { type: "plain_text", text: meta.title },
+    submit: { type: "plain_text", text: "Add" },
+    close: { type: "plain_text", text: "Close" },
+    blocks: [
+      context(meta.note),
+      {
+        type: "input", block_id: "text",
+        label: { type: "plain_text", text: meta.prompt },
+        element: { type: "plain_text_input", action_id: "value", multiline: true }
+      },
+      divider(),
+      ...(records.length
+        ? records.slice().reverse().map((r) =>
+            section(`*${fmtDate(r.at)}*\n${escapeMrkdwn(r.text)}`))
+        : [context("Nothing yet.")])
     ]
   };
 }
@@ -473,4 +549,7 @@ function wrapModal() {
   };
 }
 
-module.exports = { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal, APP_URL };
+module.exports = {
+  build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal,
+  recordModal, RECORD_TYPES, APP_URL
+};

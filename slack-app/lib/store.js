@@ -422,6 +422,29 @@ async function goBackCheckin(teamId, userId, step) {
   });
 }
 
+/* ---------- records: goals, development, achievements, feedback, updates ----------
+   Same shared-owner rule as topics/actions/history — both people in a pair
+   read and write the same list, keyed by type so the five kinds never mix. */
+
+const recordsKey = (type, teamId, ownerId) => "records:" + type + ":" + teamId + ":" + ownerId;
+
+async function getRecords(teamId, userId, type) {
+  const ownerId = await sharedOwnerId(teamId, userId);
+  return (await get(recordsKey(type, teamId, ownerId))) || [];
+}
+
+async function addRecord(teamId, userId, type, text) {
+  const ownerId = await sharedOwnerId(teamId, userId);
+  const key = recordsKey(type, teamId, ownerId);
+  return withLock(key, async () => {
+    const list = (await get(key)) || [];
+    const record = { id: nextId(list), text, by: userId, at: Date.now() };
+    list.push(record);
+    await set(key, list);
+    return record;
+  });
+}
+
 module.exports = {
   installationStore, setPair, getPair, getCounts,
   getTopics, addTopic, setTopicStatus, clearDiscussedTopics,
@@ -429,5 +452,6 @@ module.exports = {
   getHistory, saveWrapUp,
   getAddedQuestions, addQuestion,
   getCheckin, startCheckin, submitCheckinAnswer, goBackCheckin,
+  getRecords, addRecord,
   usingRealStorage: !!REST_URL
 };

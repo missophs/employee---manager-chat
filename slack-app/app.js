@@ -20,7 +20,7 @@
 require("dotenv").config();
 
 const { App } = require("@slack/bolt");
-const { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal } = require("./blocks");
+const { build, PINGS, homeTab, addTopicModal, checkinModal, talkModal, wrapModal, recordModal, RECORD_TYPES } = require("./blocks");
 const store = require("./lib/store");
 const { queueFor } = require("./lib/questions");
 
@@ -257,6 +257,64 @@ app.action("already_added", async ({ ack }) => { await ack(); });
    so the button does not show a warning triangle. */
 app.action("open_app", async ({ ack }) => { await ack(); });
 app.action("open_handbook", async ({ ack }) => { await ack(); });
+
+/* ---------- records: goals, development, achievements, feedback, updates ---------- */
+
+app.action(/^open_record_/, async ({ ack, body, client, logger }) => {
+  await ack();
+  const type = body.actions[0].action_id.replace("open_record_", "");
+  if (!RECORD_TYPES[type]) return;
+  if (type === "concern" && (ROLES[body.user.id] || "employee") !== "manager") return;
+  try {
+    const records = await store.getRecords(TEAM_ID, body.user.id, type);
+    await client.views.open({ trigger_id: body.trigger_id, view: recordModal(type, records) });
+  } catch (error) {
+    logger.error("Could not open the " + type + " list:", error);
+  }
+});
+
+app.view("record_modal", async ({ ack, view, body, client, logger }) => {
+  const type = view.private_metadata;
+  const text = view.state.values.text?.value?.trim();
+  if (!text) {
+    await ack({ response_action: "errors", errors: { text: "Say a few words first." } });
+    return;
+  }
+  await ack();
+  try {
+    await store.addRecord(TEAM_ID, body.user.id, type, text);
+  } catch (error) {
+    logger.error("Could not save the " + type + ":", error);
+    return;
+  }
+  const profile = await client.users.info({ user: body.user.id });
+  const name = profile.user?.profile?.first_name || profile.user?.name || "there";
+  try {
+    await client.views.publish({
+      user_id: body.user.id,
+      view: homeTab(await summary(name, body.user.id))
+    });
+  } catch (error) {
+    logger.error(type + " was saved but the Home tab could not refresh:", error);
+  }
+  const other = counterpartOf(body.user.id);
+  if (other) {
+    try {
+      const label = RECORD_TYPES[type].title.toLowerCase().replace(/s$/, "");
+      await client.chat.postMessage({
+        channel: other,
+        text: name + " added a new " + label + ".",
+        blocks: [
+          { type: "section", text: { type: "mrkdwn", text: ":white_check_mark: " + name + " added a new " + label + "." } },
+          { type: "context", elements: [{ type: "mrkdwn",
+            text: RECORD_TYPES[type].title + " · never the content, only that it happened" }] }
+        ]
+      });
+    } catch (error) {
+      logger.error("Could not notify the counterpart about the new " + type + ":", error);
+    }
+  }
+});
 
 /* ---------- the check-in: one question per modal screen ---------- */
 
